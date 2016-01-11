@@ -1,0 +1,5 @@
+name: todos
+description: A minimal Flutter project.
+dependencies:
+  flutter:
+    path: ../../../../../../flutter/packages/flutter
