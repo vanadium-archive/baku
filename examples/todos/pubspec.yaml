@@ -1,5 +1,6 @@
 name: todos
 description: A minimal Flutter project.
 dependencies:
+  uuid: 0.5.0
   flutter:
     path: ../../../../../../flutter/packages/flutter
