@@ -40,7 +40,7 @@ public class HelloActivityALaCarte extends Activity {
                 .bindTo(R.id.textView)
                 .bindTo(R.id.editText)
 
-                .getSubscription();
+                .getAllBindings();
 
         GlobalUserSyncgroup.builder()
                 .activity(vActivity)
