@@ -10,13 +10,13 @@ import android.os.Bundle;
 import io.v.baku.toolkit.VAndroidContextMixin;
 import io.v.baku.toolkit.VAndroidContextTrait;
 import io.v.baku.toolkit.bind.SyncbaseBinding;
-import io.v.rx.syncbase.GlobalUserSyncgroup;
+import io.v.rx.syncbase.RxAndroidSyncbase;
 import io.v.rx.syncbase.RxDb;
-import io.v.rx.syncbase.RxSyncbase;
+import io.v.rx.syncbase.UserSyncgroup;
 import rx.Subscription;
 
 public class HelloActivityALaCarte extends Activity {
-    private RxSyncbase mSb;
+    private RxAndroidSyncbase mSb;
     private Subscription mActivityDataBindings;
 
     @Override
@@ -27,7 +27,7 @@ public class HelloActivityALaCarte extends Activity {
         final VAndroidContextTrait<HelloActivityALaCarte> vActivity =
                 VAndroidContextMixin.withDefaults(this, savedInstanceState);
 
-        mSb = new RxSyncbase(vActivity);
+        mSb = new RxAndroidSyncbase(vActivity);
         final RxDb db = mSb.rxApp("app").rxDb("db");
 
         // We want these data bindings to share the lifecycle of the Activity from onCreate to
@@ -42,12 +42,12 @@ public class HelloActivityALaCarte extends Activity {
 
                 .getAllBindings();
 
-        GlobalUserSyncgroup.builder()
+        UserSyncgroup.builder()
                 .activity(vActivity)
-                .syncbase(mSb).db(db)
+                .db(db)
                 .prefix("t")
                 .sgSuffix("myGlobalUserSyncgroup")
-                .build()
+                .buildCloud()
                 .join();
     }
 

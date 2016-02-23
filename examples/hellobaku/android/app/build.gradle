@@ -28,7 +28,7 @@ android {
 }
 
 dependencies {
-    compile 'io.v:baku-toolkit:0.6.0'
+    compile 'io.v:baku-toolkit:0.7.0'
     compile fileTree(dir: 'libs', include: ['*.jar'])
     apk ('org.slf4j:slf4j-android:1.7.12')
 }
