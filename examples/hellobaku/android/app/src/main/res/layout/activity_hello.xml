@@ -9,7 +9,7 @@
     tools:context=".HelloActivity">
 
     <TextView
-        android:id="@+id/textView"
+        android:id="@+id/displayTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
@@ -17,10 +17,18 @@
         android:layout_alignParentTop="true" />
 
     <EditText
-        android:id="@+id/editText"
+        android:id="@+id/inputEditText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignEnd="@+id/textView"
         android:layout_alignParentStart="true"
-        android:layout_below="@+id/textView" />
+        android:layout_below="@+id/displayTextView"
+        android:layout_toStartOf="@+id/actionButton" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/bn_text"
+        android:id="@+id/actionButton"
+        android:layout_below="@+id/displayTextView"
+        android:layout_alignEnd="@+id/displayTextView" />
 </RelativeLayout>

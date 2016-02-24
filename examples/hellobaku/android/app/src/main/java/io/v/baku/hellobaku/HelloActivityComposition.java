@@ -6,6 +6,7 @@ package io.v.baku.hellobaku;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.widget.EditText;
 
 import io.v.baku.toolkit.BakuActivityMixin;
 import io.v.baku.toolkit.BakuActivityTrait;
@@ -20,9 +21,17 @@ public class HelloActivityComposition extends Activity {
 
         mBaku = new BakuActivityMixin<>(this, savedInstanceState);
 
-        mBaku.binder().key("text")
-                .bindTo(R.id.textView)
-                .bindTo(R.id.editText);
+        // Binds the Syncbase row named "message" to displayTextView
+        mBaku.binder().key("message")
+                .bindTo(R.id.displayTextView);
+
+        final EditText txtInput = (EditText) findViewById(R.id.inputEditText);
+        findViewById(R.id.actionButton).setOnClickListener(bn -> {
+            // Writes the text of inputEditText to the Syncbase row named "message"
+            mBaku.getSyncbaseTable().put("message", txtInput.getText().toString());
+
+            txtInput.setText("");
+        });
     }
 
     @Override

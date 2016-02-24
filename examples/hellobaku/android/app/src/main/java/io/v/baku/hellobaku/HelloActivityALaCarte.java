@@ -6,12 +6,15 @@ package io.v.baku.hellobaku;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.widget.EditText;
 
+import io.v.baku.toolkit.ErrorReporters;
 import io.v.baku.toolkit.VAndroidContextMixin;
 import io.v.baku.toolkit.VAndroidContextTrait;
 import io.v.baku.toolkit.bind.SyncbaseBinding;
 import io.v.rx.syncbase.RxAndroidSyncbase;
 import io.v.rx.syncbase.RxDb;
+import io.v.rx.syncbase.RxTable;
 import io.v.rx.syncbase.UserSyncgroup;
 import rx.Subscription;
 
@@ -28,19 +31,31 @@ public class HelloActivityALaCarte extends Activity {
                 VAndroidContextMixin.withDefaults(this, savedInstanceState);
 
         mSb = new RxAndroidSyncbase(vActivity);
-        final RxDb db = mSb.rxApp("app").rxDb("db");
+        // Operate on Syncbase io.v.baku.hellobaku/db/t
+        final RxDb db = mSb.rxApp(getPackageName()).rxDb("db");
+        final RxTable t = db.rxTable("t");
 
-        // We want these data bindings to share the lifecycle of the Activity from onCreate to
-        // onDestroy, so keep track of their CompositeSubscription and unsubscribe in onDestroy.
+        // We want this data binding to share the lifecycle of the Activity from onCreate to
+        // onDestroy, so keep track of its Subscription and unsubscribe in onDestroy.
         mActivityDataBindings = SyncbaseBinding.builder()
                 .activity(vActivity)
                 .rxTable(db.rxTable("t"))
 
-                .key("text")
-                .bindTo(R.id.textView)
-                .bindTo(R.id.editText)
+                // Binds the Syncbase row named "message" to displayTextView
+                .key("message")
+                .bindTo(R.id.displayTextView)
 
                 .getAllBindings();
+
+        final EditText txtInput = (EditText) findViewById(R.id.inputEditText);
+        findViewById(R.id.actionButton).setOnClickListener(bn -> {
+            // Writes the text of inputEditText to the Syncbase row named "message"
+            t.put("message", txtInput.getText().toString())
+                    // Report any error. Normally BakuActivityMixin does this for you.
+                    .subscribe(x -> {}, ErrorReporters.getDefaultSyncErrorReporter(vActivity));
+
+            txtInput.setText("");
+        });
 
         UserSyncgroup.builder()
                 .activity(vActivity)
