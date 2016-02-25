@@ -6,26 +6,28 @@ package io.v.baku.hellobaku;
 
 import android.os.Bundle;
 import android.widget.EditText;
-import android.widget.TextView;
 
 import io.v.baku.toolkit.BakuActivity;
 
-public class HelloActivity extends BakuActivity {
+/**
+ * This example is similar to {@link HelloActivity} but uses a unidirectional rather than
+ * bidirectional data binding to {@code displayTextView}, instead writing to Syncbase directly.
+ */
+public class HelloActivityOneWay extends BakuActivity {
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_hello);
 
-        final TextView txtOutput = (TextView) findViewById(R.id.displayTextView);
-        // Binds the Syncbase row named "message" to displayTextView, a.k.a. txtOutput.
+        // Binds the Syncbase row named "message" to displayTextView, read-only
         binder().key("message")
-                .bindTo(txtOutput);
+                .bindReadOnly(R.id.displayTextView);
 
         final EditText txtInput = (EditText) findViewById(R.id.inputEditText);
         findViewById(R.id.actionButton).setOnClickListener(bn -> {
-            // Setting the text on txtOutput will update the "message" Syncbase row via the data
-            // binding we established above.
-            txtOutput.setText(txtInput.getText());
+            // Writes the text of inputEditText to the Syncbase row named "message"
+            getSyncbaseTable().put("message", txtInput.getText().toString());
+
             txtInput.setText("");
         });
     }

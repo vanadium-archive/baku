@@ -17,6 +17,15 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".HelloActivityOneWay"
+            android:label="@string/oneway_label" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".HelloActivityComposition"
             android:label="@string/comp_label" >
             <intent-filter>
