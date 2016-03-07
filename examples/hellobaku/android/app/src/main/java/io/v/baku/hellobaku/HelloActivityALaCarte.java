@@ -11,7 +11,7 @@ import android.widget.TextView;
 
 import io.v.baku.toolkit.VAndroidContextMixin;
 import io.v.baku.toolkit.VAndroidContextTrait;
-import io.v.baku.toolkit.bind.SyncbaseBinding;
+import io.v.baku.toolkit.bind.BindingBuilder;
 import io.v.rx.syncbase.RxAndroidSyncbase;
 import io.v.rx.syncbase.RxDb;
 import io.v.rx.syncbase.RxTable;
@@ -39,15 +39,15 @@ public class HelloActivityALaCarte extends Activity {
 
         // We want this data binding to share the lifecycle of the Activity from onCreate to
         // onDestroy, so keep track of its Subscription and unsubscribe in onDestroy.
-        mActivityDataBindings = SyncbaseBinding.builder()
+        final BindingBuilder builder = new BindingBuilder()
                 .activity(vActivity)
-                .rxTable(db.rxTable("t"))
+                .rxTable(db.rxTable("t"));
 
-                // Binds the Syncbase row named "message" to displayTextView, a.k.a. txtOutput.
-                .key("message")
-                .bindTo(txtOutput)
+        mActivityDataBindings = builder.getAllBindings();
 
-                .getAllBindings();
+        // Binds the Syncbase row named "message" to displayTextView, a.k.a. txtOutput.
+        builder.onKey("message")
+                .bindTo(txtOutput);
 
         final EditText txtInput = (EditText) findViewById(R.id.inputEditText);
         findViewById(R.id.actionButton).setOnClickListener(bn -> {

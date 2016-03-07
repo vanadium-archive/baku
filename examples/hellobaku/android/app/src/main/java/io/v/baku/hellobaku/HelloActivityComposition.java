@@ -24,7 +24,7 @@ public class HelloActivityComposition extends Activity {
 
         final TextView txtOutput = (TextView) findViewById(R.id.displayTextView);
         // Binds the Syncbase row named "message" to displayTextView, a.k.a. txtOutput.
-        mBaku.binder().key("message")
+        mBaku.binder().onKey("message")
                 .bindTo(txtOutput);
 
         final EditText txtInput = (EditText) findViewById(R.id.inputEditText);

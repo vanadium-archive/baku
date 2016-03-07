@@ -20,7 +20,7 @@ public class HelloActivityOneWay extends BakuActivity {
         setContentView(R.layout.activity_hello);
 
         // Binds the Syncbase row named "message" to displayTextView, read-only
-        binder().key("message")
+        binder().onKey("message")
                 .bindReadOnly(R.id.displayTextView);
 
         final EditText txtInput = (EditText) findViewById(R.id.inputEditText);

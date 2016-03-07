@@ -18,7 +18,7 @@ public class HelloActivity extends BakuActivity {
 
         final TextView txtOutput = (TextView) findViewById(R.id.displayTextView);
         // Binds the Syncbase row named "message" to displayTextView, a.k.a. txtOutput.
-        binder().key("message")
+        binder().onKey("message")
                 .bindTo(txtOutput);
 
         final EditText txtInput = (EditText) findViewById(R.id.inputEditText);
