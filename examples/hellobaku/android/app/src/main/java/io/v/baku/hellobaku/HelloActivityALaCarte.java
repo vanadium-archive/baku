@@ -14,7 +14,6 @@ import io.v.baku.toolkit.VAndroidContextTrait;
 import io.v.baku.toolkit.bind.BindingBuilder;
 import io.v.rx.syncbase.RxAndroidSyncbase;
 import io.v.rx.syncbase.RxDb;
-import io.v.rx.syncbase.RxTable;
 import io.v.rx.syncbase.UserSyncgroup;
 import rx.Subscription;
 
@@ -33,7 +32,6 @@ public class HelloActivityALaCarte extends Activity {
         mSb = new RxAndroidSyncbase(vActivity);
         // Operate on Syncbase io.v.baku.hellobaku/db/t
         final RxDb db = mSb.rxApp(getPackageName()).rxDb("db");
-        final RxTable t = db.rxTable("t");
 
         final TextView txtOutput = (TextView) findViewById(R.id.displayTextView);
 
@@ -46,8 +44,8 @@ public class HelloActivityALaCarte extends Activity {
         mActivityDataBindings = builder.getAllBindings();
 
         // Binds the Syncbase row named "message" to displayTextView, a.k.a. txtOutput.
-        builder.onKey("message")
-                .bindTo(txtOutput);
+        builder.forKey("message")
+               .bindTo(txtOutput);
 
         final EditText txtInput = (EditText) findViewById(R.id.inputEditText);
         findViewById(R.id.actionButton).setOnClickListener(bn -> {
