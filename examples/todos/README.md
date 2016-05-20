@@ -1,6 +1,8 @@
 # todos
 
-Details coming soon.
+A new flutter project.
 
-    pub get
-    flutter start && flutter logs
+## Getting Started
+
+For help getting started with Flutter, view our online
+[documentation](http://flutter.io/).

@@ -1,8 +1,2 @@
 name: todos
-material-design-icons:
-  - name: action/check_circle
-  - name: action/delete
-  - name: content/add
-  - name: content/clear
-  - name: navigation/arrow_back
-  - name: navigation/close
+uses-material-design: true
