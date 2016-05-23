@@ -1,1 +1,9 @@
 /.jiri
+deps
+.atom/
+.idea
+.packages
+.pub/
+build/
+ios/.generated/
+packages
