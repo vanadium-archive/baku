@@ -21,7 +21,7 @@ deps/flutter:
 	@touch $@
 
 .PHONY: clean
-clean:
+clean: depclean
 	@true
 
 .PHONY: depclean
