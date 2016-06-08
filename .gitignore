@@ -7,3 +7,7 @@ deps
 build/
 **/ios/.generated/
 packages
+generated-src
+*.iml
+.gradle
+local.properties

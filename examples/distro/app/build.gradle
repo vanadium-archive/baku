@@ -1,0 +1,63 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'io.v:gradle-plugin:1.7'
+    }
+}
+
+apply plugin: 'android-sdk-manager'
+apply plugin: 'com.android.application'
+
+/*apply plugin: 'io.v.vdl'
+vdl {
+    inputPaths += 'src/main/java'
+}*/
+android.sourceSets.main.java.srcDirs += 'generated-src/vdl'
+
+/*
+You might have to download JDK8 and set JAVA8_HOME (or set the jdk to Java 8 via Project Structure).
+For detailed instructions, see https://github.com/evant/gradle-retrolambda
+ */
+apply plugin: 'me.tatarka.retrolambda'
+apply plugin: 'flutter'
+
+android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    compileSdkVersion 23
+    buildToolsVersion '23.0.1'
+
+    defaultConfig {
+        applicationId "io.baku.examples.distro"
+        minSdkVersion 21
+        multiDexEnabled true
+        targetSdkVersion 23
+        versionCode 1
+        versionName "1.0"
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+    }
+}
+
+flutter {
+    source 'src/flutter'
+}
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    provided 'org.projectlombok:lombok:1.16.8'
+    compile (
+            'com.jaredrummler:android-device-names:1.0.9',
+            'io.reactivex:rxjava:1.1.5',
+            'io.v:vanadium-android:2.1.9'
+    )
+}

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Baku Distro</string>
+    <string name="err_scan">Error scanning for other devices</string>
+</resources>
