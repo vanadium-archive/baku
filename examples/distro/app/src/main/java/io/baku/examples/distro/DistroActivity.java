@@ -30,6 +30,9 @@ import org.json.JSONObject;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import io.flutter.view.FlutterMain;
 import io.flutter.view.FlutterView;
@@ -48,10 +51,12 @@ import rx.Subscription;
 public class DistroActivity extends FragmentActivity implements GoogleApiClient.OnConnectionFailedListener {
     private static final String TAG = DistroActivity.class.getSimpleName();
     private static final Duration PING_TIMEOUT = Duration.standardSeconds(2);
-    private static final long DISCO_DEBOUNCE = 250;
+    private static final long POLL_INTERVAL = 750;
 
     private VAndroidContext context;
     private FlutterView flutterView;
+    private final Map<String, ConnectionMonitor> clients = new HashMap<>();
+    private ScheduledExecutorService poller;
     private Subscription subscription;
 
     @Override
@@ -65,6 +70,8 @@ public class DistroActivity extends FragmentActivity implements GoogleApiClient.
         File appBundle = new File(PathUtils.getDataDirectory(this),
                 FlutterMain.APP_BUNDLE);
         flutterView.runFromBundle(appBundle.getPath(), null);
+
+        poller = new ScheduledThreadPoolExecutor(1);
 
         context = VAndroidContexts.withDefaults(this, savedInstanceState);
 
@@ -108,6 +115,9 @@ public class DistroActivity extends FragmentActivity implements GoogleApiClient.
             subscription.unsubscribe();
         }
 
+        poller.shutdown();
+        clients.clear();
+
         if (flutterView != null) {
             flutterView.destroy();
         }
@@ -143,34 +153,57 @@ public class DistroActivity extends FragmentActivity implements GoogleApiClient.
         }
     }
 
+    private boolean isActive() {
+        return subscription != null && !subscription.isUnsubscribed();
+    }
+
+    private class ConnectionMonitor implements FutureCallback<String> {
+        final String name;
+        final DistroClient client;
+
+        private ListenableFuture<String> poll;
+
+        public ConnectionMonitor(final String name) {
+            this.name = name;
+            client = DistroClientFactory.getDistroClient(name);
+
+            poll();
+        }
+
+        public void poll() {
+            poll = client.getDescription(context.getVContext().withTimeout(PING_TIMEOUT));
+            Futures.addCallback(poll, this);
+        }
+
+        @Override
+        public void onSuccess(final String description) {
+            if (isActive()) {
+                final JSONObject message = new JSONObject();
+                try {
+                    message.put("name", name);
+                    message.put("description", description);
+                } catch (final JSONException wtf) {
+                    throw new RuntimeException(wtf);
+                }
+                flutterView.sendToFlutter("deviceOnline", message.toString());
+
+                poller.schedule(this::poll, POLL_INTERVAL, TimeUnit.MILLISECONDS);
+            }
+        }
+
+        @Override
+        public void onFailure(final Throwable t) {
+            if (isActive()) {
+                flutterView.sendToFlutter("deviceOffline", name);
+
+                clients.remove(name);
+            }
+        }
+    }
+
     private Subscription startScanning() {
-        final Map<String, Connection> clients = new HashMap<>();
-
         return Disco.scanContinuously(context)
-                .subscribe(name -> {
-                    final Connection conn = Maps.computeIfAbsent(clients, name, Connection::new);
-                    ListenableFuture<String> descFuture = conn
-                            .pollDescription(context.getVContext().withTimeout(PING_TIMEOUT));
-                    if (descFuture != null) {
-                        Futures.addCallback(descFuture, new FutureCallback<String>() {
-                            @Override
-                            public void onSuccess(final String description) {
-                                final JSONObject message = new JSONObject();
-                                try {
-                                    message.put("name", name);
-                                    message.put("description", description);
-                                } catch (final JSONException wtf) {
-                                    throw new RuntimeException(wtf);
-                                }
-                                flutterView.sendToFlutter("deviceOnline", message.toString());
-                            }
-
-                            @Override
-                            public void onFailure(final Throwable t) {
-                                flutterView.sendToFlutter("deviceOffline", name);
-                            }
-                        });
-                    }
-                }, t -> context.getErrorReporter().onError(R.string.err_scan, t));
+                .subscribe(name -> Maps.computeIfAbsent(clients, name, ConnectionMonitor::new),
+                        t -> context.getErrorReporter().onError(R.string.err_scan, t));
     }
 }

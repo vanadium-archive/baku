@@ -32,11 +32,16 @@ class _Device {
 }
 
 class _BakuDistroState extends State<BakuDistro> {
-  Map<String, String> devices = {};
+  final Map<String, String> devices = {};
+  InputValue data = InputValue.empty;
 
   _BakuDistroState() {
     HostMessages.addMessageHandler('deviceOnline', _onDeviceOnline);
     HostMessages.addMessageHandler('deviceOffline', _onDeviceOffline);
+  }
+
+  void castTo(final String name) {
+
   }
 
   @override
@@ -49,11 +54,28 @@ class _BakuDistroState extends State<BakuDistro> {
       appBar: new AppBar(
         title: new Text('Baku Distro Example')
       ),
-      body: new MaterialList(
-        type: MaterialListType.oneLine,
-        children: sortedDevices.map((d) => new ListItem(
-          title: new Text(d.description)
-        ))
+      body: new Column(
+        children: <Widget>[
+          new Padding(
+            padding: new EdgeInsets.all(8.0),
+            child: data.text.isEmpty?
+              new Text('No content', style:
+                new TextStyle(color: Theme.of(context).disabledColor)) :
+              new Text(data.text)
+          ),
+          new Input(
+            value: data,
+            labelText: 'Text content',
+            onChanged: (value) => setState(() => data = value)
+          ),
+          new MaterialList(
+            type: MaterialListType.oneLine,
+            children: sortedDevices.map((d) => new ListItem(
+              title: new Text(d.description),
+              onTap: () => castTo(d.name)
+            ))
+          )
+        ]
       )
     );
   }
