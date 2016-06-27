@@ -1,0 +1,63 @@
+#!/bin/bash
+# Copyright 2016 The Vanadium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+
+set -e
+
+function follow_links() {
+  cd -P "${1%/*}"
+  file="$PWD/${1##*/}"
+  while [ -h "$file" ]; do
+    # On Mac OS, readlink -f doesn't work.
+    cd -P "${file%/*}"
+    file="$(readlink "$file")"
+    cd -P "${file%/*}"
+    file="$PWD/${file##*/}"
+  done
+  echo "$PWD/${file##*/}"
+}
+
+PROG_NAME="$(follow_links "$BASH_SOURCE")"
+BIN_DIR="$(cd "${PROG_NAME%/*}" ; pwd -P)"
+export MDTEST_TOOL="$(cd "${BIN_DIR}/.." ; pwd -P)"
+
+SNAPSHOT_PATH="$MDTEST_TOOL/bin/cache/mdtest.snapshot"
+STAMP_PATH="$MDTEST_TOOL/bin/cache/mdtest.stamp"
+SCRIPT_PATH="$MDTEST_TOOL/bin/mdtest.dart"
+DART="$(which dart)"
+PUB="$(which pub)"
+
+if [ "$DART" = "dart not found" ]; then
+  echo "dart is not detected.  Please install dart sdk from www.dartlang.org"
+  exit 0
+fi
+
+if [ "$PUB" = "pub not found" ]; then
+  echo "pub is not detected.  Please install dart sdk from www.dartlang.org"
+  exit 0
+fi
+
+REVISION=`(cd "$MDTEST_TOOL"; git rev-parse HEAD)`
+if [ ! -f "$SNAPSHOT_PATH" ] || [ ! -f "$STAMP_PATH" ] || [ `cat "$STAMP_PATH"` != "$REVISION" ] || [ "$MDTEST_TOOL/pubspec.yaml" -nt "$MDTEST_TOOL/pubspec.lock" ]; then
+  echo Building multi-drive tool...
+  (cd "$MDTEST_TOOL"; "$PUB" get --verbosity=warning)
+  "$DART" --snapshot="$SNAPSHOT_PATH" --packages="$MDTEST_TOOL/.packages" "$SCRIPT_PATH"
+  echo $REVISION > "$STAMP_PATH"
+fi
+
+if [ $MDTEST_DEV ]; then
+  "$DART" --packages="$MDTEST_TOOL/.packages" -c "$SCRIPT_PATH" "$@"
+else
+  set +e
+  "$DART" "$SNAPSHOT_PATH" "$@"
+
+  EXIT_CODE=$?
+  if [ $EXIT_CODE != 253 ]; then
+    exit $EXIT_CODE
+  fi
+
+  set -e
+  "$DART" --snapshot="$SNAPSHOT_PATH" --package="$MDTEST_TOOL/.package" "$SCRIPT_PATH"
+  "$DART" "$SNAPSHOT_PATH" "$@"
+fi
