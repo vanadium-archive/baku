@@ -12,7 +12,7 @@ abstract class Logger {
 class StdoutLogger extends Logger {
   @override
   void info(String message) {
-    print('[info] $message');
+    stderr.writeln('[info ] $message');
   }
 
   @override
