@@ -8,11 +8,13 @@ import 'dart:io';
 import 'package:stack_trace/stack_trace.dart';
 
 import 'src/commands/run.dart';
+import 'src/commands/auto.dart';
 import 'src/runner/mdtest_command_runner.dart';
 
 Future<Null> main(List<String> args) async {
   MDTestCommandRunner runner = new MDTestCommandRunner()
-    ..addCommand(new RunCommand());
+    ..addCommand(new RunCommand())
+    ..addCommand(new AutoCommand());
 
     return Chain.capture(() async {
       dynamic result = await runner.run(args);

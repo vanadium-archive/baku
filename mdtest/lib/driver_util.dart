@@ -8,8 +8,8 @@ import 'dart:convert' show JSON;
 
 import 'package:flutter_driver/flutter_driver.dart';
 
-import '../base/common.dart';
-import '../globals.dart';
+import 'src/base/common.dart';
+import 'src/globals.dart';
 
 class DriverUtil {
   static Future<FlutterDriver> connectByName(String deviceNickname) async {
