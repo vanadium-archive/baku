@@ -6,42 +6,46 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart' as path;
-
 import 'device.dart';
 import 'key_provider.dart';
 import '../globals.dart';
+import '../util.dart';
 
 class DeviceSpec implements ClusterKeyProvider {
-  DeviceSpec(
-    {
-      this.nickName,
-      this.deviceID,
-      this.deviceModelName,
-      this.appRootPath,
-      this.appPath,
-      this.observatoryUrl
-    }
-  );
+  DeviceSpec(String nickname, { this.specProperties }) {
+    specProperties['nickname'] = nickname;
+  }
 
-  final String nickName;
-  final String deviceID;
-  final String deviceModelName;
-  final String appRootPath;
-  final String appPath;
-  String observatoryUrl;
+  Map<String, String> specProperties;
 
-  // TODO(kaiyuanw): rewrite matches function later if necessary
+  String get nickName => specProperties['nickname'];
+  String get deviceID => specProperties['device-id'];
+  String get deviceModelName => specProperties['model-name'];
+  String get deviceScreenSize => specProperties['screen-size'];
+  String get appRootPath => specProperties['app-root'];
+  String get appPath => specProperties['app-path'];
+  String get observatoryUrl => specProperties['observatory-url'];
+  void set observatoryUrl(String url) {
+    specProperties['observatory-url'] = url;
+  }
+
+  /// Match if property names are not specified or equal to the device property.
+  /// Checked property names includes: device-id, model-name, screen-size
   bool matches(Device device) {
-    if(deviceID == device.id) {
-      return deviceModelName == null ?
-               true : deviceModelName == device.modelName;
-    } else {
-      return deviceID == null ?
-               (deviceModelName == null ?
-                 true : deviceModelName == device.modelName)
-               : false;
-    }
+    List<String> checkedProperties = [
+      'device-id',
+      'model-name',
+      'screen-size'
+    ];
+    return checkedProperties.every(
+      (String propertyName) => isNullOrEqual(propertyName, device)
+    );
+  }
+
+  bool isNullOrEqual(String propertyName, Device device) {
+    return specProperties[propertyName] == null
+           ||
+           specProperties[propertyName] == device.properties[propertyName];
   }
 
   @override
@@ -50,8 +54,11 @@ class DeviceSpec implements ClusterKeyProvider {
   }
 
   @override
-  String toString() => '<nickname: $nickName, id: $deviceID, '
-                       'model name: $deviceModelName, port: $observatoryUrl, '
+  String toString() => '<nickname: $nickName, '
+                       'id: $deviceID, '
+                       'model name: $deviceModelName, '
+                       'screen size: $deviceScreenSize, '
+                       'port: $observatoryUrl, '
                        'app path: $appPath>';
 }
 
@@ -81,22 +88,15 @@ Future<dynamic> loadSpecs(String specsPath) async {
   }
 }
 
-String normalizePath(String rootPath, String relativePath) {
-  return path.normalize(path.join(rootPath, relativePath));
-}
-
 /// Build a list of device specs from mappings loaded from JSON .spec file
 Future<List<DeviceSpec>> constructAllDeviceSpecs(dynamic allSpecs) async {
   List<DeviceSpec> deviceSpecs = <DeviceSpec>[];
   for(String name in allSpecs.keys) {
-    Map<String, String> specs = allSpecs[name];
+    Map<String, String> spec = allSpecs[name];
     deviceSpecs.add(
       new DeviceSpec(
-        nickName: name,
-        deviceID: specs['device-id'],
-        deviceModelName: specs['model-name'],
-        appRootPath: specs['app-root'],
-        appPath: specs['app-path']
+        name,
+        specProperties: spec
       )
     );
   }

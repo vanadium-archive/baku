@@ -5,6 +5,8 @@
 import 'dart:io' show Platform;
 import 'dart:math';
 
+import 'package:path/path.dart' as path;
+
 int minLength(List<String> elements) {
   if (elements == null || elements.isEmpty) return -1;
   return elements.map((String e) => e.length).reduce(min);
@@ -31,4 +33,8 @@ int beginOfDiff(List<String> elements) {
     }
   }
   return minL;
+}
+
+String normalizePath(String rootPath, String relativePath) {
+  return path.normalize(path.join(rootPath, relativePath));
 }

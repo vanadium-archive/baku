@@ -6,15 +6,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'key_provider.dart';
+import 'android.dart';
 
 class Device implements ClusterKeyProvider {
   Device({
-    this.id,
-    this.modelName
+    this.properties
   });
 
-  final String id;
-  final String modelName;
+  Map<String, String> properties;
+
+  String get id => properties['device-id'];
+  String get modelName => properties['model-name'];
+  String get screenSize => properties['screen-size'];
 
   @override
   String clusterKey() {
@@ -22,7 +25,8 @@ class Device implements ClusterKeyProvider {
   }
 
   @override
-  String toString() => '<id: $id, model-name: $modelName>';
+  String toString()
+    => '<id: $id, model-name: $modelName, screen-size: $screenSize>';
 }
 
 Future<List<Device>> getDevices() async {
@@ -45,16 +49,14 @@ Future<List<String>> _getDeviceIDs() async {
   bool startReading = false;
   RegExp startPattern = new RegExp(r'List of devices attached');
   RegExp deviceIDPattern = new RegExp(r'\s+(\w+)\s+.*');
-  RegExp stopPatternWithDevices = new RegExp(r'\d+ connected devices?');
-  RegExp stopPatternWithoutDevices = new RegExp(r'No devices detected');
+  RegExp stopPattern = new RegExp(r'\d+ connected devices?|No devices detected');
   await for (var line in lineStream) {
     if (!startReading && startPattern.hasMatch(line.toString())) {
       startReading = true;
       continue;
     }
 
-    if (stopPatternWithDevices.hasMatch(line.toString())
-        || stopPatternWithoutDevices.hasMatch(line.toString()))
+    if (stopPattern.hasMatch(line.toString()))
       break;
 
     if (startReading) {
@@ -73,12 +75,10 @@ Future<List<String>> _getDeviceIDs() async {
 
 Future<Device> _collectDeviceProps(String deviceID) async {
   return new Device(
-    id: deviceID,
-    modelName: await _getProperty(deviceID, 'ro.product.model')
+    properties: <String, String> {
+      'device-id': deviceID,
+      'model-name': await getProperty(deviceID, 'ro.product.model'),
+      'screen-size': await getScreenSize(deviceID)
+    }
   );
-}
-
-Future<String> _getProperty(String deviceID, String propName) async {
-  ProcessResult results = await Process.run('adb', ['-s', deviceID, 'shell', 'getprop', propName]);
-  return results.stdout.toString().trim();
 }

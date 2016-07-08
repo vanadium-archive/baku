@@ -4,9 +4,10 @@
 
 import 'dart:async';
 
-import 'runner.dart';
+import 'helper.dart';
 import '../mobile/device.dart';
 import '../mobile/device_spec.dart';
+import '../mobile/android.dart';
 import '../algorithms/matching.dart';
 import '../globals.dart';
 import '../runner/mdtest_command.dart';
@@ -51,6 +52,7 @@ class RunCommand extends MDTestCommand {
 
     if (await runner.runAllApps(deviceMapping) != 0) {
       printError('Error when running applications');
+      await uninstallTestedApps(deviceMapping);
       return 1;
     }
 
@@ -58,8 +60,11 @@ class RunCommand extends MDTestCommand {
 
     if (await runner.runTest(_specs['test-path']) != 0) {
       printError('Test execution exit with error.');
+      await uninstallTestedApps(deviceMapping);
       return 1;
     }
+
+    await uninstallTestedApps(deviceMapping);
 
     return 0;
   }
