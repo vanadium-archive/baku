@@ -6,10 +6,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../base/common.dart';
 import '../mobile/device.dart';
 import '../mobile/device_spec.dart';
 import '../mobile/android.dart';
+import '../test/coverage_collector.dart';
 import '../globals.dart';
+import '../util.dart';
 
 class MDTestRunner {
   List<Process> appProcesses;
@@ -71,6 +74,15 @@ class MDTestRunner {
     return 0;
   }
 
+  /// Run all tests
+  Future<int> runAllTests(Iterable<String> testPaths) async {
+    int result = 0;
+    for (String testPath in testPaths) {
+      result += await runTest(testPath);
+    }
+    return result == 0 ? 0 : 1;
+  }
+
   /// Create a process and invoke 'dart testPath' to run the test script.  After
   /// test result is returned (either pass or fail), kill all app processes and
   /// return the current process exit code
@@ -85,7 +97,6 @@ class MDTestRunner {
       if (testStopPattern.hasMatch(line.toString()))
         break;
     }
-    killAppProcesses();
     process.stderr.drain();
     return await process.exitCode;
   }
@@ -96,4 +107,65 @@ class MDTestRunner {
       process.kill();
     }
   }
+}
+
+/// Create a coverage collector for each application and assign a coverage
+/// collection task for the coverage collector
+void buildCoverageCollectionTasks(
+  Map<DeviceSpec, Device> deviceMapping,
+  Map<String, CoverageCollector> collectorPool
+) {
+  assert(collectorPool != null);
+  // Build app path to coverage collector mapping and add collection tasks
+  deviceMapping.keys.forEach((DeviceSpec spec) {
+    collectorPool.putIfAbsent(
+      spec.appRootPath,
+      () => new CoverageCollector()
+    ).collectCoverage(spec.observatoryUrl);
+  });
+}
+
+/// Run coverage collection tasks for each application
+Future<Null> runCoverageCollectionTasks(
+  Map<String, CoverageCollector> collectorPool
+) async {
+  assert(collectorPool.isNotEmpty);
+  // Collect coverage for every application
+  for (CoverageCollector collector in collectorPool.values) {
+    await collector.finishPendingJobs();
+  }
+}
+
+/// Compute application code coverage and write coverage info in lcov format
+Future<int> computeAppsCoverage(
+  Map<String, CoverageCollector> collectorPool,
+  String commandName
+) async {
+  if (collectorPool.isEmpty)
+    return 1;
+  // Write coverage info to coverage/code_coverage folder under each
+  // application folder
+  for (String appRootPath in collectorPool.keys) {
+    CoverageCollector collector = collectorPool[appRootPath];
+    String coverageData = await collector.finalizeCoverage(appRootPath);
+    if (coverageData == null)
+      return 1;
+
+    String coveragePath = normalizePath(
+      appRootPath,
+      '$defaultCodeCoverageDirectoryPath',
+      'cov_${commandName}_${generateTimeStamp()}.info'
+    );
+    try {
+      // Write coverage info to code_coverage folder
+      new File(coveragePath)
+        ..createSync(recursive: true)
+        ..writeAsStringSync(coverageData, flush: true);
+      print('Writing code coverage to $coveragePath');
+    } on FileSystemException {
+      printError('Cannot write code coverage info to $coveragePath');
+      return 1;
+    }
+  }
+  return 0;
 }

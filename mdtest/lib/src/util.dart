@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'dart:math';
 
 import 'package:path/path.dart' as path;
+
+import 'globals.dart';
 
 int minLength(List<String> elements) {
   if (elements == null || elements.isEmpty) return -1;
@@ -35,6 +37,27 @@ int beginOfDiff(List<String> elements) {
   return minL;
 }
 
-String normalizePath(String rootPath, String relativePath) {
-  return path.normalize(path.join(rootPath, relativePath));
+String normalizePath(
+  String rootPath,
+  [String relativePath1, relativePath2]
+) {
+  return path.normalize(
+    path.join(rootPath, relativePath1, relativePath2)
+  );
+}
+
+String generateTimeStamp() {
+  return new DateTime.now().toIso8601String();
+}
+
+bool deleteDirectories(Iterable<String> dirPaths) {
+  for (String dirPath in dirPaths) {
+    try {
+      new Directory(dirPath).deleteSync(recursive: true);
+    } on FileSystemException {
+      printError('Cannot delete directory $dirPath');
+      return false;
+    }
+  }
+  return true;
 }

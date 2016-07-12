@@ -69,7 +69,11 @@ Future<dynamic> loadSpecs(String specsPath) async {
     // Get the parent directory of the specs file
     String rootPath = new File(specsPath).parent.absolute.path;
     // Normalize the 'test-path' in the specs file
-    newSpecs['test-path'] = normalizePath(rootPath, newSpecs['test-path']);
+    // newSpecs['test-path'] = normalizePath(rootPath, newSpecs['test-path']);
+    newSpecs['test-paths']
+      = newSpecs['test-paths'].map(
+        (String testPath) => normalizePath(rootPath, testPath)
+      );
     // Normalize the 'app-path' in the specs file
     newSpecs['devices'].forEach((String name, Map<String, String> map) {
       map['app-path'] = normalizePath(rootPath, map['app-path']);

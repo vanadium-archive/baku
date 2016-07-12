@@ -35,6 +35,14 @@ abstract class MDTestCommand extends Command {
     _usesSpecsOption = true;
   }
 
+  void usesCoverageFlag() {
+    argParser.addFlag('coverage',
+      defaultsTo: false,
+      negatable: false,
+      help: 'Whether to collect coverage information.'
+    );
+  }
+
   @override
   Future<int> run() {
     Stopwatch stopwatch = new Stopwatch()..start();

@@ -4,6 +4,7 @@ description: A multi-device app testing framework for Android and iOS
 dependencies:
   args: ^0.13.4
   stack_trace: ^1.4.0
+  coverage: ^0.7.9
   dlog:
     path: ../../../../third_party/dart/dlog
   flutter_driver:
