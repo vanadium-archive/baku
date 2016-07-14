@@ -37,12 +37,9 @@ int beginOfDiff(List<String> elements) {
   return minL;
 }
 
-String normalizePath(
-  String rootPath,
-  [String relativePath1, relativePath2]
-) {
+String normalizePath(String rootPath, String relativePath) {
   return path.normalize(
-    path.join(rootPath, relativePath1, relativePath2)
+    path.join(rootPath, relativePath)
   );
 }
 
@@ -60,4 +57,16 @@ bool deleteDirectories(Iterable<String> dirPaths) {
     }
   }
   return true;
+}
+
+File getUniqueFile(Directory dir, String baseName, String ext) {
+  int i = 1;
+
+  while (true) {
+    String name = '${baseName}_${i.toString().padLeft(2, '0')}.$ext';
+    File file = new File(path.join(dir.path, name));
+    if (!file.existsSync())
+      return file;
+    i++;
+  }
 }

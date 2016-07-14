@@ -11,6 +11,7 @@ import '../mobile/device.dart';
 import '../mobile/device_spec.dart';
 import '../mobile/android.dart';
 import '../test/coverage_collector.dart';
+import '../test/reporter.dart';
 import '../globals.dart';
 import '../util.dart';
 
@@ -74,7 +75,7 @@ class MDTestRunner {
     return 0;
   }
 
-  /// Run all tests
+  /// Run all tests without test output reformatting
   Future<int> runAllTests(Iterable<String> testPaths) async {
     int result = 0;
     for (String testPath in testPaths) {
@@ -83,11 +84,26 @@ class MDTestRunner {
     return result == 0 ? 0 : 1;
   }
 
-  /// Create a process and invoke 'dart testPath' to run the test script.  After
-  /// test result is returned (either pass or fail), kill all app processes and
-  /// return the current process exit code
+  /// Run all tests with test output in TAP format
+  Future<int> runAllTestsToTAP(Iterable<String> testPaths) async {
+    int result = 0;
+    TAPReporter reporter = new TAPReporter();
+    reporter.printHeader();
+    for (String testPath in testPaths) {
+      result += await runTestToTAP(testPath, reporter);
+    }
+    reporter.printSummary();
+    return result == 0 ? 0 : 1;
+  }
+
+  /// Create a process and invoke 'dart [testPath]' to run the test script.
+  /// After test result is returned (either pass or fail), return the current
+  /// process exit code (0 if success, otherwise failure)
   Future<int> runTest(String testPath) async {
-    Process process = await Process.start('dart', ['$testPath']);
+    Process process = await Process.start(
+      'dart',
+      ['$testPath']
+    );
     RegExp testStopPattern = new RegExp(r'All tests passed|Some tests failed');
     Stream stdoutStream = process.stdout
                                  .transform(new Utf8Decoder())
@@ -97,6 +113,24 @@ class MDTestRunner {
       if (testStopPattern.hasMatch(line.toString()))
         break;
     }
+    process.stderr.drain();
+    return await process.exitCode;
+  }
+
+  /// Create a process and invoke 'pub run test --reporter json [testPath]' to
+  /// run the test script and convert json output into tap output on the fly.
+  /// After test result is returned (either pass or fail), return the current
+  /// process exit code (0 if success, otherwise failure)
+  Future<int> runTestToTAP(String testPath, TAPReporter reporter) async {
+    Process process = await Process.start(
+      'pub',
+      ['run', 'test', '--reporter', 'json', '$testPath']
+    );
+    await reporter.report(
+      process.stdout
+             .transform(new Utf8Decoder())
+             .transform(new LineSplitter())
+    );
     process.stderr.drain();
     return await process.exitCode;
   }
@@ -151,19 +185,23 @@ Future<int> computeAppsCoverage(
     if (coverageData == null)
       return 1;
 
-    String coveragePath = normalizePath(
+    String codeCoverageDirPath = normalizePath(
       appRootPath,
-      '$defaultCodeCoverageDirectoryPath',
-      'cov_${commandName}_${generateTimeStamp()}.info'
+      '$defaultCodeCoverageDirectoryPath'
+    );
+    File codeCoverageReport = getUniqueFile(
+      new Directory(codeCoverageDirPath),
+      'cov_$commandName',
+      'info'
     );
     try {
       // Write coverage info to code_coverage folder
-      new File(coveragePath)
+      codeCoverageReport
         ..createSync(recursive: true)
         ..writeAsStringSync(coverageData, flush: true);
-      print('Writing code coverage to $coveragePath');
+      printTrace('Writing code coverage to ${codeCoverageReport.path}');
     } on FileSystemException {
-      printError('Cannot write code coverage info to $coveragePath');
+      printError('Cannot write code coverage info to ${codeCoverageReport.path}');
       return 1;
     }
   }

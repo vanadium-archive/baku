@@ -90,7 +90,7 @@ Future<int> uninstallTestedApps(Map<DeviceSpec, Device> deviceMapping) async {
                          .transform(new Utf8Decoder())
                          .transform(new LineSplitter());
     await for (var line in lineStream) {
-      print('Uninstall $packageName on device ${device.id}: ${line.toString().trim()}');
+      printTrace('Uninstall $packageName on device ${device.id}: ${line.toString().trim()}');
     }
 
     uninstallProcess.stderr.drain();

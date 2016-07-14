@@ -7,16 +7,37 @@ import 'dart:io';
 abstract class Logger {
   void info(String message);
   void error(String message);
+  void trace(String message);
 }
 
 class StdoutLogger extends Logger {
   @override
   void info(String message) {
-    stderr.writeln('[info ] $message');
+    stderr.writeln('[INFO] $message');
   }
 
   @override
   void error(String message) {
-    stderr.writeln('[error] $message');
+    stderr.writeln('[ERROR] $message');
+  }
+
+  @override
+  void trace(String message) {}
+}
+
+class VerboseLogger extends Logger {
+  @override
+  void info(String message) {
+    stderr.writeln('[INFO] $message');
+  }
+
+  @override
+  void error(String message) {
+    stderr.writeln('[ERROR] $message');
+  }
+
+  @override
+  void trace(String message) {
+    stderr.writeln('[TRACE] $message');
   }
 }

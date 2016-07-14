@@ -138,7 +138,7 @@ bool _findAllMatchingDeviceMappings(
 void printMatches(Iterable<Map<DeviceSpec, Device>> matches) {
   StringBuffer sb = new StringBuffer();
   int roundNum = 1;
-  sb.writeln('**********');
+  sb.writeln('=' * 10);
   for (Map<DeviceSpec, Device> match in matches) {
     sb.writeln('Round $roundNum:');
     match.forEach((DeviceSpec spec, Device device) {
@@ -148,6 +148,6 @@ void printMatches(Iterable<Map<DeviceSpec, Device>> matches) {
     });
     roundNum++;
   }
-  sb.write('**********');
+  sb.write('=' * 10);
   print(sb.toString());
 }

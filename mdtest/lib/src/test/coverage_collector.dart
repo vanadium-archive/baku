@@ -7,6 +7,8 @@ import 'dart:async';
 import 'package:coverage/coverage.dart';
 import 'package:path/path.dart' as path;
 
+import '../globals.dart';
+
 class CoverageCollector {
   List<Future<Null>> _jobs = <Future<Null>>[];
   Map<String, dynamic> _globalHitmap;
@@ -15,8 +17,8 @@ class CoverageCollector {
     RegExp urlPattern = new RegExp(r'http://(.*):(\d+)');
     Match urlMatcher = urlPattern.firstMatch(observatoryUrl);
     if (urlMatcher == null) {
-      print('Cannot parse host name and port '
-            'from observatory url $observatoryUrl');
+      printError('Cannot parse host name and port '
+                 'from observatory url $observatoryUrl');
       return;
     }
     String host = urlMatcher.group(1);

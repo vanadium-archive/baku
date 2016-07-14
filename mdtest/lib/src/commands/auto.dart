@@ -30,7 +30,7 @@ class AutoCommand extends MDTestCommand {
 
   @override
   Future<int> runCore() async {
-    print('Running "mdtest auto command" ...');
+    printInfo('Running "mdtest auto command" ...');
 
     this._specs = await loadSpecs(argResults['specs']);
 
@@ -66,6 +66,7 @@ class AutoCommand extends MDTestCommand {
       = <String, CoverageCollector>{};
 
     List<int> errRounds = [];
+    List<int> failRounds = [];
     int roundNum = 1;
     for (Map<DeviceSpec, Device> deviceMapping in chosenMappings) {
       MDTestRunner runner = new MDTestRunner();
@@ -79,15 +80,23 @@ class AutoCommand extends MDTestCommand {
 
       await storeMatches(deviceMapping);
 
-      if (await runner.runAllTests(_specs['test-paths']) != 0) {
-        printError('Tests execution exit with error.');
-        await uninstallTestedApps(deviceMapping);
-        errRounds.add(roundNum++);
-        continue;
+      bool testsFailed;
+      if (argResults['format'] == 'tap') {
+        testsFailed = await runner.runAllTestsToTAP(_specs['test-paths']) != 0;
+      } else {
+        testsFailed = await runner.runAllTests(_specs['test-paths']) != 0;
+      }
+
+      assert(testsFailed != null);
+      if (testsFailed) {
+        printInfo('Some tests in Round #$roundNum failed');
+        failRounds.add(roundNum++);
+      } else {
+        printInfo('All tests in Round #${roundNum++} passed');
       }
 
       if (argResults['coverage']) {
-        print('Collecting code coverage hitmap ...');
+        printTrace('Collecting code coverage hitmap (this may take some time)');
         buildCoverageCollectionTasks(deviceMapping, collectorPool);
         await runCoverageCollectionTasks(collectorPool);
       }
@@ -96,12 +105,18 @@ class AutoCommand extends MDTestCommand {
     }
 
     if (errRounds.isNotEmpty) {
-      printError('Error in Round #${errRounds.join(", #")}');
+      printError('Error in Round #${errRounds.join(', #')}');
       return 1;
     }
 
+    if (failRounds.isNotEmpty) {
+      printInfo('Some tests failed in Round #${failRounds.join(', #')}');
+    } else {
+      printInfo('All tests in all rounds passed');
+    }
+
     if (argResults['coverage']) {
-      print('Computing code coverage for each application ...');
+      printInfo('Computing code coverage for each application ...');
       if (await computeAppsCoverage(collectorPool, name) != 0)
         return 1;
     }
@@ -112,5 +127,6 @@ class AutoCommand extends MDTestCommand {
   AutoCommand() {
     usesSpecsOption();
     usesCoverageFlag();
+    usesTAPReportOption();
   }
 }

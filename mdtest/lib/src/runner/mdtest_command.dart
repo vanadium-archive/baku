@@ -27,7 +27,6 @@ abstract class MDTestCommand extends Command {
     argParser.addOption(
       'specs',
       defaultsTo: null,
-      allowMultiple: false,
       help:
         'Path to the config file that specifies the devices, '
         'apps and debug-ports for testing.'
@@ -40,6 +39,14 @@ abstract class MDTestCommand extends Command {
       defaultsTo: false,
       negatable: false,
       help: 'Whether to collect coverage information.'
+    );
+  }
+
+  void usesTAPReportOption() {
+    argParser.addOption('format',
+      defaultsTo: 'none',
+      allowed: ['none', 'tap'],
+      help: 'Format to be used to display test output result.'
     );
   }
 

@@ -87,7 +87,7 @@ Future<dynamic> loadSpecs(String specsPath) async {
     printError('File $specsPath is not in JSON format.');
     exit(1);
   } catch (e) {
-    print('Unknown Exception details:\n $e');
+    printError('Unknown Exception details:\n $e');
     exit(1);
   }
 }

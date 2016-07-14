@@ -27,10 +27,10 @@ class RunCommand extends MDTestCommand {
 
   @override
   Future<int> runCore() async {
-    print('Running "mdtest run command" ...');
+    printInfo('Running "mdtest run command" ...');
 
     this._specs = await loadSpecs(argResults['specs']);
-    print(_specs);
+    printTrace(_specs.toString());
 
     this._devices = await getDevices();
     if (_devices.isEmpty) {
@@ -59,21 +59,31 @@ class RunCommand extends MDTestCommand {
 
     await storeMatches(deviceMapping);
 
-    if (await runner.runAllTests(_specs['test-paths']) != 0) {
-      printError('Tests execution exit with error.');
-      await uninstallTestedApps(deviceMapping);
-      return 1;
+    bool testsFailed;
+    if (argResults['format'] == 'tap') {
+      testsFailed = await runner.runAllTestsToTAP(_specs['test-paths']) != 0;
+    } else {
+      testsFailed = await runner.runAllTests(_specs['test-paths']) != 0;
+    }
+
+    assert(testsFailed != null);
+    if (testsFailed) {
+      printError('Some tests failed');
+    } else {
+      printInfo('All tests passed');
     }
 
     if (argResults['coverage']) {
       Map<String, CoverageCollector> collectorPool
         = <String, CoverageCollector>{};
       buildCoverageCollectionTasks(deviceMapping, collectorPool);
-      print('Collecting code coverage hitmap ...');
+      printTrace('Collecting code coverage hitmap (this may take some time)');
       await runCoverageCollectionTasks(collectorPool);
-      print('Computing code coverage for each application ...');
-      if (await computeAppsCoverage(collectorPool, name) != 0)
+      printInfo('Computing code coverage for each application ...');
+      if (await computeAppsCoverage(collectorPool, name) != 0) {
+        await uninstallTestedApps(deviceMapping);
         return 1;
+      }
     }
 
     await uninstallTestedApps(deviceMapping);
@@ -84,5 +94,6 @@ class RunCommand extends MDTestCommand {
   RunCommand() {
     usesSpecsOption();
     usesCoverageFlag();
+    usesTAPReportOption();
   }
 }
