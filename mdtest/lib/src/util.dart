@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:path/path.dart' as path;
+import 'package:glob/glob.dart';
 
 import 'globals.dart';
 
@@ -69,4 +70,42 @@ File getUniqueFile(Directory dir, String baseName, String ext) {
       return file;
     i++;
   }
+}
+
+/// Return the absolute paths of a list of files based on a list of glob
+/// patterns.  The order of the result follow the order of the given glob
+/// patterns, but the order of file paths corresponding to the same glob
+/// pattern is not guranteed.
+List<String> listFilePathsFromGlobPatterns(
+  String rootPath,
+  Iterable<String> globPatterns
+) {
+  List<String> result = <String>[];
+  if (globPatterns == null) {
+    return result;
+  }
+  Set<String> seen = new Set<String>();
+  for (String globPattern in globPatterns) {
+    Glob fileGlob = new Glob(globPattern);
+    Iterable<String> filePaths = fileGlob.listSync().map(
+      (FileSystemEntity file) => normalizePath(rootPath, file.path)
+    );
+    Set<String> neverSeen = new Set.from(filePaths).difference(seen);
+    result.addAll(neverSeen);
+    seen.addAll(neverSeen);
+  }
+  return result;
+}
+
+/// Merge two iterables into a list and remove duplicates.  The order is kept
+/// where elements in [first] appear before elements in [second] and the order
+/// inside each iterable is also kept.  [first] and [second] must not contain
+/// any duplicate item.
+List<String> mergeWithoutDuplicate(
+  Iterable<String> first,
+  Iterable<String> second
+) {
+  List<String> result = new List.from(first);
+  result.addAll(second.where((String e) => !first.contains(e)));
+  return result;
 }

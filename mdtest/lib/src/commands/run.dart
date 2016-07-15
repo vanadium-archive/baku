@@ -29,7 +29,7 @@ class RunCommand extends MDTestCommand {
   Future<int> runCore() async {
     printInfo('Running "mdtest run command" ...');
 
-    this._specs = await loadSpecs(argResults['specs']);
+    this._specs = await loadSpecs(argResults);
     printTrace(_specs.toString());
 
     this._devices = await getDevices();

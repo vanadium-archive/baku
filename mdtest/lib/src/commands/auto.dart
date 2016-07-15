@@ -32,7 +32,7 @@ class AutoCommand extends MDTestCommand {
   Future<int> runCore() async {
     printInfo('Running "mdtest auto command" ...');
 
-    this._specs = await loadSpecs(argResults['specs']);
+    this._specs = await loadSpecs(argResults);
 
     this._devices = await getDevices();
     if (_devices.isEmpty) {

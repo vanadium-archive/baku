@@ -38,7 +38,6 @@ class TAPReporter {
       '1..$currentTestNum\n'
       '# tests $currentTestNum\n'
       '# pass $passingTestsNum\n'
-      '\n'
     );
   }
 

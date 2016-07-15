@@ -6,6 +6,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:args/args.dart';
+
 import 'device.dart';
 import 'key_provider.dart';
 import '../globals.dart';
@@ -62,18 +64,25 @@ class DeviceSpec implements ClusterKeyProvider {
                        'app path: $appPath>';
 }
 
-Future<dynamic> loadSpecs(String specsPath) async {
+Future<dynamic> loadSpecs(ArgResults argResults) async {
+  String specsPath = argResults['specs'];
   try {
     // Read specs file into json format
     dynamic newSpecs = JSON.decode(await new File(specsPath).readAsString());
     // Get the parent directory of the specs file
     String rootPath = new File(specsPath).parent.absolute.path;
-    // Normalize the 'test-path' in the specs file
-    // newSpecs['test-path'] = normalizePath(rootPath, newSpecs['test-path']);
-    newSpecs['test-paths']
-      = newSpecs['test-paths'].map(
-        (String testPath) => normalizePath(rootPath, testPath)
-      );
+    // Normalize the 'test-path' in the specs file and add extra test paths
+    // from the command line argument
+    List<String> testPathsFromSpec
+      = listFilePathsFromGlobPatterns(rootPath, newSpecs['test-paths']);
+    print('Test paths from spec: $testPathsFromSpec');
+    List<String> testPathsFromCommandLine
+      = listFilePathsFromGlobPatterns(Directory.current.path, argResults.rest);
+    print('Test paths from command line: $testPathsFromCommandLine');
+    newSpecs['test-paths'] = mergeWithoutDuplicate(
+      testPathsFromSpec,
+      testPathsFromCommandLine
+    );
     // Normalize the 'app-path' in the specs file
     newSpecs['devices'].forEach((String name, Map<String, String> map) {
       map['app-path'] = normalizePath(rootPath, map['app-path']);
