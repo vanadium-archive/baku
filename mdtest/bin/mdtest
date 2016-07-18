@@ -40,10 +40,11 @@ fi
 
 REVISION=`(cd "$MDTEST_TOOL"; git rev-parse HEAD)`
 if [ ! -f "$SNAPSHOT_PATH" ] || [ ! -f "$STAMP_PATH" ] || [ `cat "$STAMP_PATH"` != "$REVISION" ] || [ "$MDTEST_TOOL/pubspec.yaml" -nt "$MDTEST_TOOL/pubspec.lock" ]; then
-  echo Building multi-drive tool...
+  echo Building mdtest ...
   (cd "$MDTEST_TOOL"; "$PUB" get --verbosity=warning)
   "$DART" --snapshot="$SNAPSHOT_PATH" --packages="$MDTEST_TOOL/.packages" "$SCRIPT_PATH"
   echo $REVISION > "$STAMP_PATH"
+  echo Build Success
 fi
 
 if [ $MDTEST_DEV ]; then
