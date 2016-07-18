@@ -39,6 +39,9 @@ int beginOfDiff(List<String> elements) {
 }
 
 String normalizePath(String rootPath, String relativePath) {
+  if (rootPath == null || relativePath == null) {
+    return null;
+  }
   return path.normalize(
     path.join(rootPath, relativePath)
   );
