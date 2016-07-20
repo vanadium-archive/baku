@@ -33,12 +33,12 @@ class AutoCommand extends MDTestCommand {
     printInfo('Running "mdtest auto command" ...');
 
     this._specs = await loadSpecs(argResults);
-    if (sanityCheckSpecs(_specs, argResults['spec']) != 0) {
+    if (sanityCheckSpecs(_specs, argResults['specs']) != 0) {
       printError('Test spec does not meet requirements.');
       return 1;
     }
 
-    this._devices = await getDevices();
+    this._devices = await getDevices(groupKey: argResults['groupby']);
     if (_devices.isEmpty) {
       printError('No device found.');
       return 1;
@@ -59,7 +59,7 @@ class AutoCommand extends MDTestCommand {
     Map<String, List<DeviceSpec>> deviceSpecClusters
       = buildCluster(allDeviceSpecs);
 
-    ClusterInfo clusterInfo = new ClusterInfo(deviceClusters, deviceSpecClusters);
+    GroupInfo clusterInfo = new GroupInfo(deviceClusters, deviceSpecClusters);
     Map<CoverageMatrix, Map<DeviceSpec, Device>> cov2match
       = buildCoverage2MatchMapping(allDeviceMappings, clusterInfo);
     Set<Map<DeviceSpec, Device>> chosenMappings
@@ -132,5 +132,11 @@ class AutoCommand extends MDTestCommand {
     usesSpecsOption();
     usesCoverageFlag();
     usesTAPReportOption();
+    argParser.addOption('groupby',
+      defaultsTo: 'device-id',
+      allowed: ['device-id', 'model-name', 'os-version', 'api-level', 'screen-size'],
+      help: 'Device property used to group devices to'
+            'adjust app-device coverage criterion.'
+    );
   }
 }

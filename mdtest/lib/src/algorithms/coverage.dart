@@ -8,13 +8,13 @@ import '../mobile/device.dart' show Device;
 import '../mobile/device_spec.dart' show DeviceSpec;
 import '../util.dart';
 
-class ClusterInfo {
+class GroupInfo {
   Map<String, List<Device>> _deviceClusters;
   Map<String, List<DeviceSpec>> _deviceSpecClusters;
   List<String> _deviceClustersOrder;
   List<String> _deviceSpecClustersOrder;
 
-  ClusterInfo(
+  GroupInfo(
     Map<String, List<Device>> deviceClusters,
     Map<String, List<DeviceSpec>> deviceSpecClusters
   ) {
@@ -39,7 +39,7 @@ class CoverageMatrix {
     }
   }
 
-  ClusterInfo clusterInfo;
+  GroupInfo clusterInfo;
   // Coverage matrix, where a row indicats an app cluster and a column
   // indicates a device cluster
   List<List<int>> matrix;
@@ -47,9 +47,9 @@ class CoverageMatrix {
   void fill(Map<DeviceSpec, Device> match) {
     match.forEach((DeviceSpec spec, Device device) {
       int rowNum = clusterInfo.deviceSpecClustersOrder
-                              .indexOf(spec.clusterKey());
+                              .indexOf(spec.groupKey());
       int colNum = clusterInfo.deviceClustersOrder
-                              .indexOf(device.clusterKey());
+                              .indexOf(device.groupKey());
       matrix[rowNum][colNum] = 1;
     });
   }
@@ -78,7 +78,7 @@ class CoverageMatrix {
 
 Map<CoverageMatrix, Map<DeviceSpec, Device>> buildCoverage2MatchMapping(
   List<Map<DeviceSpec, Device>> allMatches,
-  ClusterInfo clusterInfo
+  GroupInfo clusterInfo
 ) {
   Map<CoverageMatrix, Map<DeviceSpec, Device>> cov2match
     = <CoverageMatrix, Map<DeviceSpec, Device>>{};
@@ -97,7 +97,7 @@ Map<CoverageMatrix, Map<DeviceSpec, Device>> buildCoverage2MatchMapping(
 /// [ref link]: https://en.wikipedia.org/wiki/Set_cover_problem
 Set<Map<DeviceSpec, Device>> findMinimumMappings(
   Map<CoverageMatrix, Map<DeviceSpec, Device>> cov2match,
-  ClusterInfo clusterInfo
+  GroupInfo clusterInfo
 ) {
   Set<CoverageMatrix> minSet = new Set<CoverageMatrix>();
   CoverageMatrix base = new CoverageMatrix(clusterInfo);

@@ -13,7 +13,7 @@ import 'key_provider.dart';
 import '../globals.dart';
 import '../util.dart';
 
-class DeviceSpec implements ClusterKeyProvider {
+class DeviceSpec implements GroupKeyProvider {
   DeviceSpec(String nickname, { this.specProperties }) {
     specProperties['nickname'] = nickname;
   }
@@ -51,7 +51,7 @@ class DeviceSpec implements ClusterKeyProvider {
   }
 
   @override
-  String clusterKey() {
+  String groupKey() {
     return appPath;
   }
 

@@ -142,9 +142,9 @@ void printMatches(Iterable<Map<DeviceSpec, Device>> matches) {
   for (Map<DeviceSpec, Device> match in matches) {
     sb.writeln('Round $roundNum:');
     match.forEach((DeviceSpec spec, Device device) {
-      sb.writeln('[Spec Cluster Key: ${spec.clusterKey()}]'
+      sb.writeln('[Spec Cluster Key: ${spec.groupKey()}]'
                  ' -> '
-                 '[Device Cluster Key: ${device.clusterKey()}]');
+                 '[Device Cluster Key: ${device.groupKey()}]');
     });
     roundNum++;
   }

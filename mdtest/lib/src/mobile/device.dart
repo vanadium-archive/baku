@@ -8,32 +8,40 @@ import 'dart:io';
 import 'key_provider.dart';
 import 'android.dart';
 
-class Device implements ClusterKeyProvider {
+class Device implements GroupKeyProvider {
   Device({
-    this.properties
-  });
+    this.properties,
+    String groupKey
+  }) {
+    this._groupKey = groupKey;
+  }
 
   Map<String, String> properties;
+  String _groupKey;
 
   String get id => properties['device-id'];
   String get modelName => properties['model-name'];
   String get screenSize => properties['screen-size'];
+  String get osVersion => properties['os-version'];
+  String get apiLevel => properties['api-level'];
 
+  /// default to 'device-id'
   @override
-  String clusterKey() {
-    return id;
+  String groupKey() {
+    return properties[_groupKey ?? 'device-id'];
   }
 
   @override
   String toString()
-    => '<id: $id, model-name: $modelName, screen-size: $screenSize>';
+    => '<device-id: $id, model-name: $modelName, screen-size: $screenSize, '
+       'os-version: $osVersion, api-level: $apiLevel>';
 }
 
-Future<List<Device>> getDevices() async {
+Future<List<Device>> getDevices({String groupKey}) async {
   List<Device> devices = <Device>[];
   await _getDeviceIDs().then((List<String> ids) async {
     for(String id in ids) {
-      devices.add(await _collectDeviceProps(id));
+      devices.add(await _collectDeviceProps(id, groupKey: groupKey));
     }
   });
   return devices;
@@ -73,12 +81,15 @@ Future<List<String>> _getDeviceIDs() async {
   return deviceIDs;
 }
 
-Future<Device> _collectDeviceProps(String deviceID) async {
+Future<Device> _collectDeviceProps(String deviceID, {String groupKey}) async {
   return new Device(
     properties: <String, String> {
       'device-id': deviceID,
       'model-name': await getProperty(deviceID, 'ro.product.model'),
+      'os-version': await getProperty(deviceID, 'ro.build.version.release'),
+      'api-level': await getProperty(deviceID, 'ro.build.version.sdk'),
       'screen-size': await getScreenSize(deviceID)
-    }
+    },
+    groupKey: groupKey
   );
 }
