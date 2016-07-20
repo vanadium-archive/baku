@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.v7.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="80dp"
+    app:contentPadding="6dp"
+    app:cardUseCompatPadding="true">
+    <ImageView
+        android:id="@+id/card_leading"
+        android:layout_width="62dp"
+        android:layout_height="62dp"
+        android:src="@drawable/ic_phone_android_black_24dp"/>
+    <TextView
+        android:id="@+id/card_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingLeft="74dp"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text=""/>
+    <TextView
+        android:id="@+id/card_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="34sp"
+        android:paddingLeft="74dp"
+        android:textSize="16sp"
+        android:textStyle="italic"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text=""/>
+</android.support.v7.widget.CardView>
