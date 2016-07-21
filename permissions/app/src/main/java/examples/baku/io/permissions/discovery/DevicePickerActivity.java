@@ -16,6 +16,7 @@ import java.util.Map;
 
 import examples.baku.io.permissions.PermissionService;
 import examples.baku.io.permissions.R;
+import examples.baku.io.permissions.examples.ComposeActivity;
 import examples.baku.io.permissions.util.EventFragment;
 
 public class DevicePickerActivity extends AppCompatActivity implements EventFragment.EventFragmentListener, ServiceConnection {
@@ -71,7 +72,7 @@ public class DevicePickerActivity extends AppCompatActivity implements EventFrag
                         }
                         setResult(0, result);
                     }else{
-                        mPermissionService.addToConstellation(dId);
+                        mPermissionService.updateConstellationDevice(dId);
                     }
                     finish();
                     return true;

@@ -13,59 +13,38 @@
     tools:showIn="@layout/activity_compose">
 
 
-    <android.support.design.widget.TextInputLayout
-        android:id="@+id/composeToLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <EditText
+        <examples.baku.io.permissions.PermissionedTextLayout
             android:id="@+id/composeTo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textEmailAddress"
             android:hint="To" />
-    </android.support.design.widget.TextInputLayout>
 
-    <android.support.design.widget.TextInputLayout
-        android:id="@+id/composeFromLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/composeToLayout">
-        <EditText
+        <examples.baku.io.permissions.PermissionedTextLayout
             android:id="@+id/composeFrom"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textEmailAddress"
+            android:layout_below="@id/composeTo"
             android:hint="From" />
-    </android.support.design.widget.TextInputLayout>
 
-    <android.support.design.widget.TextInputLayout
-        android:id="@+id/composeSubjectLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/composeFromLayout">
 
-        <EditText
+        <examples.baku.io.permissions.PermissionedTextLayout
             android:id="@+id/composeSubject"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textEmailSubject"
+            android:layout_below="@id/composeFrom"
             android:hint="Subject" />
-    </android.support.design.widget.TextInputLayout>
 
-    <android.support.design.widget.TextInputLayout
-        android:id="@+id/composeMessageLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/composeSubjectLayout">
 
-        <EditText
+        <examples.baku.io.permissions.PermissionedTextLayout
             android:id="@+id/composeMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textMultiLine"
+            android:layout_below="@id/composeSubject"
             android:hint="Message" />
-    </android.support.design.widget.TextInputLayout>
 
 
 

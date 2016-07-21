@@ -35,13 +35,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.UUID;
 
 import examples.baku.io.permissions.discovery.DeviceData;
 import examples.baku.io.permissions.discovery.DevicePickerActivity;
 import examples.baku.io.permissions.examples.ComposeActivity;
 import examples.baku.io.permissions.examples.EmailActivity;
-import examples.baku.io.permissions.messenger.Messenger;
 import examples.baku.io.permissions.messenger.Message;
+import examples.baku.io.permissions.messenger.Messenger;
 import examples.baku.io.permissions.util.Utils;
 
 public class PermissionService extends Service {
@@ -59,7 +60,6 @@ public class PermissionService extends Service {
     }
 
     static final int FOREGROUND_NOTIFICATION_ID = -3278;
-    static final int FOCUS_NOTIFICATION = -43254;
 
     static final String KEY_BLESSINGS = PermissionManager.KEY_BLESSINGS;
 
@@ -72,11 +72,13 @@ public class PermissionService extends Service {
 
     FirebaseDatabase mFirebaseDB;
     DatabaseReference mDevicesReference;
+    DatabaseReference mRequestsReference;
 
 
     DatabaseReference mMessengerReference;
     Messenger mMessenger;
 
+    DatabaseReference mPermissionsReference;
     PermissionManager mPermissionManager;
     Blessing mDeviceBlessing;
 
@@ -87,15 +89,16 @@ public class PermissionService extends Service {
     private int mNotificationCounter = 0;
     private int mActionCounter = 0;
 
-    private String mFocus;
-    private Map<String, DeviceData> mDiscovered = new HashMap<>();
-    private HashSet<DiscoveryListener> mDiscoveryListener = new HashSet<>();
-    private Map<String, Integer> mDiscoveredNotifications = new HashMap<>();
+    final private Map<String, DeviceData> mDiscovered = new HashMap<>();
+    final private HashSet<String> mConstellation = new HashSet<>();
+    final private Map<String, Integer> mConstellationNotifications = new HashMap<>();
 
-    private Map<String, Integer> mRequestNotifications = new HashMap<>();
+    final private HashSet<DiscoveryListener> mDiscoveryListener = new HashSet<>();
+    final private Map<String, Integer> mDiscoveredNotifications = new HashMap<>();
 
+    final private Map<String, Integer> mRequestNotifications = new HashMap<>();
 
-    private Map<String, ActionCallback> mActionListeners = new HashMap<>();
+    final private Map<String, ActionCallback> mActionListeners = new HashMap<>();
 
 
     private Icon shareIcon;
@@ -108,7 +111,7 @@ public class PermissionService extends Service {
 
 
     public interface ActionCallback {
-        void onAction(Intent intent);
+        boolean onAction(Intent intent);    //return true if action is complete and the notification can be dismissed
     }
 
     public interface DiscoveryListener {
@@ -137,6 +140,7 @@ public class PermissionService extends Service {
 
         mFirebaseDB = FirebaseDatabase.getInstance();
         mDevicesReference = mFirebaseDB.getReference("_devices");
+        mRequestsReference = mFirebaseDB.getReference("requests");
 
 
         shareIcon = Utils.iconFromDrawable(new IconDrawable(PermissionService.this, MaterialIcons.md_share));
@@ -149,7 +153,7 @@ public class PermissionService extends Service {
 
         mPermissionManager = new PermissionManager(mFirebaseDB.getReference(), mDeviceId);
 
-        mPermissionManager.getRootBlessing().setPermissions("documents/" + mDeviceId, PermissionManager.FLAG_READ | PermissionManager.FLAG_WRITE);
+        mPermissionManager.getRootBlessing().setPermissions("documents/" + mDeviceId, PermissionManager.FLAG_ROOT);
 
         mPermissionManager.join("public");
 
@@ -181,7 +185,7 @@ public class PermissionService extends Service {
 
                 Notification notification = new Notification.Builder(PermissionService.this)
                         .setSmallIcon(keyIcon)
-                        .setContentTitle("Permission request from " + sourceName)
+                        .setContentTitle("Permission requestDialog from " + sourceName)
                         .addAction(new Notification.Action.Builder(grantIcon, "Grant", acceptRequestPendingIntent).build())
 //                        .addAction(new Notification.Action.Builder(R.drawable.ic_close_black_24dp, "Reject", rejectRequestPendingIntent).build())
                         .setDeleteIntent(rejectRequestPendingIntent)
@@ -190,7 +194,6 @@ public class PermissionService extends Service {
                         .build();
                 mNotificationManager.notify(nId, notification);
                 mRequestNotifications.put(request.getId(), nId);
-
                 return true;
             }
 
@@ -212,22 +215,42 @@ public class PermissionService extends Service {
         mRunning = true;
     }
 
+    public void requestDialog(String requestId, String title, String subtitle, ActionCallback accept, ActionCallback reject) {
+        Integer previousNotificationId = mRequestNotifications.get(requestId);
+        if (previousNotificationId != null) {
+            mNotificationManager.cancel(previousNotificationId);
+        }
+        Notification notification = new Notification.Builder(PermissionService.this)
+                .setSmallIcon(keyIcon)
+                .setContentTitle(title)
+                .setSubText(subtitle)
+                .addAction(createAction(grantIcon, "Accept", UUID.randomUUID().toString(), accept))
+                .setDeleteIntent(createNotificationCallback(UUID.randomUUID().toString(), reject))
+                .setVibrate(new long[]{100})
+                .setPriority(Notification.PRIORITY_MAX)
+                .build();
+
+        int nId = mNotificationCounter++;
+        mNotificationManager.notify(nId, notification);
+        mRequestNotifications.put(requestId, nId);
+    }
+
+
     public Messenger getMessenger() {
         return mMessenger;
     }
 
-    public String getFocus() {
-        return mFocus;
-    }
 
-
-    public void addToConstellation(String dId) {
-        mFocus = dId;
+    public void updateConstellationDevice(String dId) {
         if (!mDiscovered.containsKey(dId)) return;
 
         DeviceData device = mDiscovered.get(dId);
         String title = device.getName();
         String subtitle = device.getId();   //default
+        if (device.getStatus() != null && device.getStatus().containsKey("description")) {
+            subtitle = device.getStatus().get("description");
+        }
+        int icon = R.drawable.ic_phone_android_black_24dp;
 
         Intent dismissIntent = new Intent(this, PermissionService.class);
         dismissIntent.putExtra("type", "dismiss");
@@ -246,9 +269,9 @@ public class PermissionService extends Service {
         if (mLocalDevice != null && mLocalDevice.getStatus().containsKey(ComposeActivity.EXTRA_MESSAGE_PATH)) {
             final String localPath = mLocalDevice.getStatus().get(ComposeActivity.EXTRA_MESSAGE_PATH);
             final String focus = device.getId();
-            notificationBuilder.addAction(createActionCallback(castIcon, "Cast Message", "castMessage", new ActionCallback() {
+            notificationBuilder.addAction(createAction(castIcon, "Cast Message", "castMessage", new ActionCallback() {
                 @Override
-                public void onAction(Intent intent) {
+                public boolean onAction(Intent intent) {
                     try {
                         JSONObject castArgs = new JSONObject();
                         castArgs.put("activity", ComposeActivity.class.getSimpleName());
@@ -257,6 +280,7 @@ public class PermissionService extends Service {
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
+                    return false;
                 }
             }));
         }
@@ -269,19 +293,29 @@ public class PermissionService extends Service {
             notificationBuilder.addAction(new Notification.Action.Builder(castIcon, "Pull Message", PendingIntent.getActivity(this, 0, emailIntent, PendingIntent.FLAG_CANCEL_CURRENT)).build());
         }
 
+        mConstellation.add(dId);
+        Integer notificationId = mConstellationNotifications.get(dId);
+        if (notificationId == null) {
+            notificationId = mNotificationCounter++;
+            mConstellationNotifications.put(dId, notificationId);
+        }
         Notification notification = notificationBuilder.build();
-        mNotificationManager.notify(FOCUS_NOTIFICATION, notification);
+        mNotificationManager.notify(notificationId, notification);
     }
 
-    private Notification.Action createActionCallback(Icon icon, String title, String actionId, ActionCallback callback) {
+
+    private Notification.Action createAction(Icon icon, String title, String actionId, ActionCallback callback) {
+        PendingIntent actionPendingIntent = createNotificationCallback(actionId, callback);
+        return new Notification.Action.Builder(icon, title, actionPendingIntent).build();
+    }
+
+    private PendingIntent createNotificationCallback(String actionId, ActionCallback callback) {
         mActionListeners.put(actionId, callback);
         Intent actionIntent = new Intent(this, PermissionService.class);
         actionIntent.putExtra(EXTRA_COMMAND, "actionCallback");
         actionIntent.putExtra(EXTRA_ACTION_ID, actionId);
-        PendingIntent actionPendingIntent = PendingIntent.getService(this, mActionCounter++, actionIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-        return new Notification.Action.Builder(icon, title, actionPendingIntent).build();
+        return PendingIntent.getService(this, mActionCounter++, actionIntent, PendingIntent.FLAG_CANCEL_CURRENT);
     }
-
 
     public PermissionManager getPermissionManager() {
         return mPermissionManager;
@@ -349,14 +383,15 @@ public class PermissionService extends Service {
 
         mMessenger.on("disassociate", new Messenger.Listener() {
             @Override
-            public void call(String args, Messenger.Ack callback) {
+            public void call(Message msg, Messenger.Ack callback) {
 
             }
         });
 
         mMessenger.on("cast", new Messenger.Listener() {
             @Override
-            public void call(String args, Messenger.Ack callback) {
+            public void call(Message msg, Messenger.Ack callback) {
+                String args = msg.getMessage();
                 if (args != null) {
                     try {
                         JSONObject jsonArgs = new JSONObject(args);
@@ -369,6 +404,9 @@ public class PermissionService extends Service {
                                 startActivity(emailIntent);
                             }
                         }
+
+                        //add cast source to constellation
+                        updateConstellationDevice(msg.getSource());
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
@@ -377,6 +415,17 @@ public class PermissionService extends Service {
         });
     }
 
+    public void removeFromConstellation(String deviceId) {
+        mConstellation.remove(deviceId);
+        mConstellationNotifications.remove(deviceId);
+        //revoke all blessings
+        for (Blessing blessing : mPermissionManager.getReceivedBlessings()) {
+            Blessing granted = blessing.getBlessing(deviceId);
+            if (granted != null) {
+                granted.revoke();
+            }
+        }
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -390,7 +439,13 @@ public class PermissionService extends Service {
                 if (intent.hasExtra(EXTRA_ACTION_ID)) {
                     String aId = intent.getStringExtra(EXTRA_ACTION_ID);
                     if (mActionListeners.containsKey(aId)) {
-                        mActionListeners.get(aId).onAction(intent);
+                        boolean result = mActionListeners.get(aId).onAction(intent);
+                        if (result) {
+                            Integer nId = mRequestNotifications.get(aId);
+                            if (nId != null) {
+                                mNotificationManager.cancel(nId);
+                            }
+                        }
                     }
                 }
 
@@ -408,7 +463,7 @@ public class PermissionService extends Service {
                     if (request != null) {
                         mPermissionManager.grantRequest(request);
                     } else {
-                        Toast.makeText(getApplicationContext(), "Expired request", 0).show();
+                        Toast.makeText(getApplicationContext(), "Expired requestDialog", 0).show();
                     }
                 }
                 if (intent.hasExtra(EXTRA_NOTIFICATION_ID)) {
@@ -423,57 +478,13 @@ public class PermissionService extends Service {
             } else if ("dismiss".equals(type)) {
                 String dId = intent.getStringExtra("deviceId");
                 if (dId != null) {
-                    //revoke all blessings
-                    for (Blessing blessing : mPermissionManager.getReceivedBlessings()) {
-                        Blessing granted = blessing.getBlessing(dId);
-                        if (granted != null) {
-                            granted.revoke();
-                        }
-                    }
+                    removeFromConstellation(dId);
+
+
                 }
 
             } else if ("close".equals(type)) {
                 stopSelf();
-            } else if ("focus".equals(type)) {
-                if (intent.hasExtra("deviceId")) {
-                    String dId = intent.getStringExtra("deviceId");
-                    l("targetting " + dId);
-                    if (mDiscovered.containsKey(dId)) {
-                        mFocus = dId;
-                        DeviceData target = mDiscovered.get(dId);
-
-                        String title = "Targetting device: " + target.getName();
-
-                        Intent contentIntent = new Intent(this, EmailActivity.class);
-
-                        Intent discoverIntent = new Intent(this, PermissionService.class);
-                        discoverIntent.putExtra("type", "discover");
-                        PendingIntent discoverPendingIntent = PendingIntent.getService(this, mActionCounter++, discoverIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-
-                        Intent castIntent = new Intent(this, PermissionService.class);
-                        castIntent.putExtra("type", "sendRequest");
-                        castIntent.putExtra("request", new Message("start"));
-                        PendingIntent castPendingIntent = PendingIntent.getService(this, mActionCounter++, castIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-
-                        Notification notification = new Notification.Builder(this)
-                                .setPriority(Notification.PRIORITY_HIGH)
-                                .setVibrate(new long[]{100})
-                                .setContentIntent(PendingIntent.getActivity(this, mActionCounter++, contentIntent, 0))
-                                .setSmallIcon(keyIcon)
-                                .setContentTitle(title)
-                                .addAction(new Notification.Action.Builder(castIcon, "Cast", castPendingIntent).build())
-                                .addAction(new Notification.Action.Builder(zoomIcon, "Discover", discoverPendingIntent).build())
-                                .build();
-
-                        refreshForegroundNotification(notification);
-
-                    }
-                    for (Iterator<Integer> iterator = mDiscoveredNotifications.values().iterator(); iterator.hasNext(); ) {
-                        int notId = iterator.next();
-                        mNotificationManager.cancel(notId);
-                    }
-                    mDiscoveredNotifications.clear();
-                }
             }
         }
         return super.onStartCommand(intent, flags, startId);
@@ -558,6 +569,9 @@ public class PermissionService extends Service {
                         mDiscovered.put(key, device);
                         for (DiscoveryListener listener : mDiscoveryListener) {
                             listener.onChange(mDiscovered);
+                        }
+                        if (mConstellation.contains(key)) {
+                            updateConstellationDevice(key);
                         }
                     }
                 } catch (DatabaseException e) {

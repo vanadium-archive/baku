@@ -66,25 +66,20 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
         setId(id);
         setSource(source);
         setTarget(target);
-
     }
 
-    public static Blessing create(PermissionManager permissionManager, String source, String target) {
-        return get(permissionManager, null, source, target, true);
-    }
-
-    //root blessings have no source blessing and their id is the same as their target
-    public static Blessing createRoot(PermissionManager permissionManager, String target) {
-        return get(permissionManager, target, null, target, true);
-    }
-
-    public static Blessing get(PermissionManager permissionManager, String id, String source, String target, boolean create) {
+    public static Blessing create(PermissionManager permissionManager, String id, String source, String target) {
         Blessing blessing = permissionManager.getBlessing(source, target);
-        if (blessing == null && create) {
+        if (blessing == null) {
             blessing = new Blessing(permissionManager, id, source, target);
             permissionManager.putBlessing(blessing);
         }
         return blessing;
+    }
+
+    //root blessings have no source blessing and their id is the same as their target
+    public static Blessing createRoot(PermissionManager permissionManager, String target) {
+        return create(permissionManager,target, null, target);
     }
 
     public static Blessing fromSnapshot(PermissionManager permissionManager, DataSnapshot snapshot) {
@@ -93,7 +88,7 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
         String source = null;
         if (snapshot.hasChild("source"))
             source = snapshot.child("source").getValue(String.class);
-        return get(permissionManager, id, source, target, true);
+        return create(permissionManager,id, source, target);
     }
 
     public OnBlessingUpdatedListener addListener(OnBlessingUpdatedListener listener) {
@@ -151,9 +146,6 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
 
     private void setSource(String source) {
         if (this.source == null && source != null) {
-            if (this.id.equals(source)) {
-                throw new IllegalArgumentException("Source can't be equal to id: " + this.id);
-            }
             this.source = source;
             ref.child("source").setValue(source);
             parentBlessing = permissionManager.getBlessing(source);
@@ -275,7 +267,7 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
             if (isDescendantOf(target) || target.equals(this.target)) {
                 throw new IllegalArgumentException("Can't bless a target that already exists in the blessing hiearchy.");
             }
-            result = Blessing.create(permissionManager, getId(), target);
+            result = Blessing.create(permissionManager, null, getId(), target);
         }
         return result;
     }
@@ -288,7 +280,6 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
         return this.target.equals(target) || parentBlessing != null && parentBlessing.isDescendantOf(target);
     }
 
-
     @Override
     public Iterator<Permission> iterator() {
         return isSynched() ? permissionTree.iterator() : null;
@@ -297,7 +288,6 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
     public PermissionTree getPermissionTree() {
         return permissionTree;
     }
-
 
     public static class Permission implements Iterable<Permission> {
         String key;
@@ -393,6 +383,7 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
             return null;
         }
 
+
         public int getPermissions() {
             return permissions | inherited;
         }
@@ -479,7 +470,7 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
         }
 
         public int getPermissions(String path) {
-            path = Utils.getNearestCommonAncestor(path, keySet());
+            path = Utils.getNearestCommonAncestor(path,keySet());
             Permission permission = get(path);
             if (permission == null) {
                 return 0;

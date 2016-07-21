@@ -17,7 +17,6 @@ import examples.baku.io.permissions.util.EventFragment;
  */
 public class InboxFragment extends EventFragment {
 
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {

@@ -150,7 +150,7 @@ public class Messenger implements ChildEventListener {
                     }
                 };
             }
-            mListeners.get(event).call(message.getMessage(), callback);
+            mListeners.get(event).call(message, callback);
             return true;
 
         //assume that none of the event listeners match the uuid of a message
@@ -195,7 +195,7 @@ public class Messenger implements ChildEventListener {
     }
 
     public interface Listener{
-        void call(String args, Ack callback);
+        void call(Message msg, Ack callback);
     }
 
     public interface Ack{

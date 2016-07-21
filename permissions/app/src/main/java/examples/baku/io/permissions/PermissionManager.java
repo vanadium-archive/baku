@@ -13,6 +13,7 @@ import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -37,6 +38,8 @@ public class PermissionManager {
     public static final int FLAG_DEFAULT = 0;
     public static final int FLAG_WRITE = 1 << 0;
     public static final int FLAG_READ = 1 << 1;
+    public static final int FLAG_SUGGEST = 1 << 2;
+    public static final int FLAG_ROOT = Integer.MAX_VALUE;
 
     static final String KEY_PERMISSIONS = "_permissions";
     static final String KEY_REQUESTS = "_requests";
@@ -57,7 +60,7 @@ public class PermissionManager {
     private final Table<String, String, PermissionRequest.Builder> mActiveRequests = HashBasedTable.create();
 
     private final Multimap<String, OnRequestListener> mRequestListeners = HashMultimap.create(); //<path,, >
-    private final Multimap<String, OnRequestListener> mSubscribedRequests = HashMultimap.create(); //<request id, >
+    private final Multimap<String, OnRequestListener> mSubscribedRequests = HashMultimap.create(); //<requestDialog id, >
 
     private Blessing.PermissionTree mPermissionTree = new Blessing.PermissionTree();
     private final Multimap<String, OnPermissionChangeListener> mPermissionValueEventListeners = HashMultimap.create();
@@ -122,7 +125,7 @@ public class PermissionManager {
             int previous = mPermissionTree.getPermissions(path);
             int current = updatedPermissionTree.getPermissions(newPath);
             if (previous != current) {
-                changedPermissions.add(path);
+                changedPermissions.add(newPath);
             }
         }
 
@@ -141,6 +144,8 @@ public class PermissionManager {
         for (String path : changedPermissions) {
             onPermissionsChange(path);
         }
+
+
     }
 
     //call all the listeners effected by a permission change at this path
@@ -156,7 +161,6 @@ public class PermissionManager {
             }
         }
     }
-
 
     public Set<PermissionRequest> getRequests(String path) {
         Set<PermissionRequest> result = new HashSet<>();

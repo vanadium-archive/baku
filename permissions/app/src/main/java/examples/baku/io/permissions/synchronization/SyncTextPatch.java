@@ -9,12 +9,22 @@ import java.util.concurrent.BlockingQueue;
 /**
  * Created by phamilton on 6/24/16.
  */
-public class SyncTextPatch{
+public class SyncTextPatch {
     private int ver;
     private String patch;
     private String source;
+    private int permissions;
 
-    public SyncTextPatch() {}
+    public int getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(int permissions) {
+        this.permissions = permissions;
+    }
+
+    public SyncTextPatch() {
+    }
 
     public int getVer() {
         return ver;

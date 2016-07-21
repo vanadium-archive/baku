@@ -55,7 +55,7 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
 
     static void l(String msg) {
         Log.e(TAG, msg);
-    }   //TODO: real logging
+    }
 
     public static final String KEY_DOCUMENTS = "documents";
     public static final String KEY_EMAILS = "emails";
@@ -81,6 +81,7 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_permission);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar.setTitle("Inbox");
         setSupportActionBar(toolbar);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -280,15 +281,15 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
 
             if (!mDeviceId.equals(targetDevice)) {
                 mPermissionManager.bless(targetDevice)
-                        .setPermissions(path, PermissionManager.FLAG_READ)
-                        .setPermissions(path + "/message", PermissionManager.FLAG_WRITE)
-                        .setPermissions(path + "/subject", PermissionManager.FLAG_WRITE);
+                        .setPermissions(path + "/to", PermissionManager.FLAG_READ)
+                        .setPermissions(path + "/message", PermissionManager.FLAG_SUGGEST)
+                        .setPermissions(path + "/subject", PermissionManager.FLAG_SUGGEST);
             }
             JSONObject castArgs = new JSONObject();
             try {
                 castArgs.put("activity", ComposeActivity.class.getSimpleName());
                 castArgs.put(ComposeActivity.EXTRA_MESSAGE_PATH, path);
-                mPermissionService.addToConstellation(targetDevice);
+                mPermissionService.updateConstellationDevice(targetDevice);
                 mPermissionService.getMessenger().to(targetDevice).emit("cast", castArgs.toString());
             } catch (JSONException e) {
                 e.printStackTrace();

@@ -30,6 +30,7 @@
         <activity
             android:name=".examples.ComposeActivity"
             android:label="@string/title_activity_compose"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
             android:name=".discovery.DevicePickerActivity"
