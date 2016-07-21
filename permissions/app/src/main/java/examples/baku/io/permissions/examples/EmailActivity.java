@@ -7,9 +7,9 @@ package examples.baku.io.permissions.examples;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.provider.ContactsContract;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.CardView;
@@ -23,7 +23,6 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.google.common.collect.Iterables;
@@ -34,15 +33,17 @@ import com.google.firebase.database.DatabaseException;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.joanzapata.iconify.widget.IconTextView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 
+import examples.baku.io.permissions.Blessing;
+import examples.baku.io.permissions.PermissionManager;
+import examples.baku.io.permissions.PermissionRequest;
 import examples.baku.io.permissions.PermissionService;
 import examples.baku.io.permissions.R;
 import examples.baku.io.permissions.discovery.DevicePickerActivity;
@@ -61,6 +62,7 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
     public static final String KEY_MESSAGES = "messages";
 
     private PermissionService mPermissionService;
+    private PermissionManager mPermissionManager;
     private String mDeviceId;
     private FirebaseDatabase mFirebaseDB;
     private DatabaseReference mMessagesRef;
@@ -142,7 +144,8 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
             //Remove swiped item from list and notify the RecyclerView
             int pos = viewHolder.getAdapterPosition();
             MessageData item = mInboxAdapter.getItem(pos);
-            if (item != null) {
+            //TOOO: bug, item id shouldn't ever be null
+            if (item != null && item.getId() != null) {
                 mMessagesRef.child(item.getId()).removeValue();
             }
         }
@@ -154,10 +157,27 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
         mPermissionService = binder.getInstance();
         if (mPermissionService != null) {
             mDeviceId = mPermissionService.getDeviceId();
+            mPermissionManager = mPermissionService.getPermissionManager();
             mFirebaseDB = mPermissionService.getFirebaseDB();
             mMessagesRef = mFirebaseDB.getReference(KEY_DOCUMENTS).child(mDeviceId).child(KEY_EMAILS).child(KEY_MESSAGES);
             mMessagesRef.addValueEventListener(messagesValueListener);
             mMessagesRef.addChildEventListener(messageChildListener);
+
+            mPermissionManager.addOnRequestListener("documents/" + mDeviceId + "/emails/messages/*", new PermissionManager.OnRequestListener() {
+                @Override
+                public boolean onRequest(PermissionRequest request, Blessing blessing) {
+                    mInboxAdapter.notifyDataSetChanged();
+                    return true;
+                }
+
+                @Override
+                public void onRequestRemoved(PermissionRequest request, Blessing blessing) {
+                    mInboxAdapter.notifyDataSetChanged();
+                }
+            });
+
+            //TEMP: example status
+            mPermissionService.clearStatus(ComposeActivity.EXTRA_MESSAGE_PATH);
         }
     }
 
@@ -254,16 +274,22 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == DevicePickerActivity.REQUEST_DEVICE_ID && data != null && data.hasExtra(DevicePickerActivity.EXTRA_DEVICE_ID)) {
-            String focus = data.getStringExtra(DevicePickerActivity.EXTRA_DEVICE_ID);
+            String targetDevice = data.getStringExtra(DevicePickerActivity.EXTRA_DEVICE_ID);
             String path = data.getStringExtra(DevicePickerActivity.EXTRA_REQUEST_ARGS);
 
-            mPermissionService.getPermissionManager().bless(focus)
-                    .setPermissions(path, 3);
+
+            if (!mDeviceId.equals(targetDevice)) {
+                mPermissionManager.bless(targetDevice)
+                        .setPermissions(path, PermissionManager.FLAG_READ)
+                        .setPermissions(path + "/message", PermissionManager.FLAG_WRITE)
+                        .setPermissions(path + "/subject", PermissionManager.FLAG_WRITE);
+            }
             JSONObject castArgs = new JSONObject();
             try {
                 castArgs.put("activity", ComposeActivity.class.getSimpleName());
                 castArgs.put(ComposeActivity.EXTRA_MESSAGE_PATH, path);
-                mPermissionService.getMessenger().to(focus).emit("cast", castArgs.toString());
+                mPermissionService.addToConstellation(targetDevice);
+                mPermissionService.getMessenger().to(targetDevice).emit("cast", castArgs.toString());
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -309,7 +335,7 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
                 subtitleView.setText(item.getSubject());
             }
 
-            ImageView castButton = (ImageView) holder.mCardView.findViewById(R.id.card_trailing);
+            IconTextView castButton = (IconTextView) holder.mCardView.findViewById(R.id.card_trailing);
             castButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -335,11 +361,31 @@ public class EmailActivity extends AppCompatActivity implements ServiceConnectio
                 }
             });
 
+            holder.mCardView.setCardBackgroundColor(Color.WHITE);
+            if (mPermissionManager != null) {
+                String path = "documents/" + mDeviceId + "/emails/messages/" + item.getId() + "/*";
+                for (PermissionRequest request : mPermissionManager.getRequests(path)) {
+                    holder.mCardView.setCardBackgroundColor(Color.GRAY);
+                    break;
+                }
+
+            }
+
         }
 
         @Override
         public int getItemCount() {
             return mDataset.size();
+        }
+    }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mPermissionService != null) {
+            //TEMP: example status
+            mPermissionService.clearStatus(ComposeActivity.EXTRA_MESSAGE_PATH);
         }
     }
 

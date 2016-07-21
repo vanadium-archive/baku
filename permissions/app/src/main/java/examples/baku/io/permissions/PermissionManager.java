@@ -4,19 +4,23 @@
 
 package examples.baku.io.permissions;
 
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Table;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.Stack;
+
+import examples.baku.io.permissions.util.Utils;
 
 
 /**
@@ -24,36 +28,40 @@ import java.util.Stack;
  */
 public class PermissionManager {
 
-    DatabaseReference mDatabaseRef;
-    DatabaseReference mBlessingsRef;
-    DatabaseReference mRequestsRef;
+    public static final String EXTRA_TIMEOUT = "extraTimeout";
+    public static final String EXTRA_COLOR = "extraColor";
+    private DatabaseReference mDatabaseRef;
+    private DatabaseReference mBlessingsRef;
+    private DatabaseReference mRequestsRef;
 
     public static final int FLAG_DEFAULT = 0;
     public static final int FLAG_WRITE = 1 << 0;
     public static final int FLAG_READ = 1 << 1;
-    public static final int FLAG_PUSH = 1 << 2;     //2-way
-//    public static final int FLAG_REFER = 1 << 3;       //1-way
 
     static final String KEY_PERMISSIONS = "_permissions";
     static final String KEY_REQUESTS = "_requests";
     static final String KEY_BLESSINGS = "_blessings";
 
+    private static final String KEY_ROOT = "root";
+
     private String mId;
+    private Blessing rootBlessing;
 
-    final Map<String, PermissionRequest> mRequests = new HashMap<>();
+    //<blessing id, blessing>
+    private final Map<String, Blessing> mBlessings = new HashMap<>();
+    //<source, target, blessing>
+    private final Table<String, String, Blessing> mBlessingsTable = HashBasedTable.create();
+    private final Set<String> mBlessingTargets = new HashSet();
 
-    //    final Map<String, Set<OnRequestListener>> requestListeners = new HashMap<>();
-    final Set<OnRequestListener> requestListeners = new HashSet<>();
-    final Multimap<String, OnReferralListener> referralListeners = HashMultimap.create();
+    private final Map<String, PermissionRequest> mRequests = new HashMap<>();
+    private final Table<String, String, PermissionRequest.Builder> mActiveRequests = HashBasedTable.create();
 
-    final Map<String, Blessing> mBlessings = new HashMap<>();
-    //<targetId, blessingId>
-    //TODO: allow for multiple granted blessings per target
-    final Map<String, Blessing> mGrantedBlessings = new HashMap<>();
+    private final Multimap<String, OnRequestListener> mRequestListeners = HashMultimap.create(); //<path,, >
+    private final Multimap<String, OnRequestListener> mSubscribedRequests = HashMultimap.create(); //<request id, >
 
-    final Map<String, Integer> mCachedPermissions = new HashMap<>();
-    final Multimap<String, OnPermissionChangeListener> mPermissionValueEventListeners = HashMultimap.create();
-    final Multimap<String, String> mNearestAncestors = HashMultimap.create();
+    private Blessing.PermissionTree mPermissionTree = new Blessing.PermissionTree();
+    private final Multimap<String, OnPermissionChangeListener> mPermissionValueEventListeners = HashMultimap.create();
+    private final Multimap<String, String> mNearestAncestors = HashMultimap.create();
 
 
     //TODO: replace string ownerId with Auth
@@ -62,49 +70,44 @@ public class PermissionManager {
         this.mId = owner;
 
         mRequestsRef = databaseReference.child(KEY_REQUESTS);
-        //TODO: only consider requests from sources within the constelattion
+        //TODO: only consider requests from sources within the constellation
         mRequestsRef.addChildEventListener(requestListener);
-
         mBlessingsRef = mDatabaseRef.child(KEY_BLESSINGS);
-        mBlessingsRef.orderByChild("target").equalTo(mId).addChildEventListener(blessingListener);
-        mBlessingsRef.orderByChild("source").equalTo(mId).addListenerForSingleValueEvent(grantedBlessingListener);
+
+        this.mId = owner;
+        initRootBlessing();
+        join(mId);
+
     }
 
-    void onBlessingUpdated(DataSnapshot snapshot) {
-        if (!snapshot.exists()) {
-            throw new IllegalArgumentException("snapshot value doesn't exist");
-        }
-        String key = snapshot.getKey();
-        Blessing blessing = mBlessings.get(key);
-        if (blessing == null) {
-            blessing = new Blessing(snapshot);
-            mBlessings.put(key, blessing);
-        } else {
-            blessing.setSnapshot(snapshot);
-        }
+    public void join(String group) {
+        mBlessingsRef.orderByChild("target").equalTo(group).addChildEventListener(blessingListener);
+        mBlessingTargets.add(group);
+    }
 
-        refreshPermissions();
+    public void leave(String group) {
+        mBlessingsRef.orderByChild("target").equalTo(group).removeEventListener(blessingListener);
+        mBlessingTargets.remove(group);
+    }
+
+    public void initRootBlessing() {
+        rootBlessing = Blessing.createRoot(this, mId);
     }
 
     //TODO: optimize this mess. Currently, recalculating entire permission tree.
     void refreshPermissions() {
-        Map<String, Integer> updatedPermissions = new HashMap<>();
-        for (Blessing blessing : mBlessings.values()) {
+        Blessing.PermissionTree updatedPermissionTree = new Blessing.PermissionTree();
+        //received blessings
+        for (Blessing blessing : getReceivedBlessings()) {
             if (blessing.isSynched()) {
-                for (Blessing.Rule rule : blessing) {
-                    String path = rule.getPath();
-                    if (updatedPermissions.containsKey(path)) {
-                        updatedPermissions.put(path, updatedPermissions.get(path) | rule.getPermissions());
-                    } else {
-                        updatedPermissions.put(path, rule.getPermissions());
-                    }
-                }
+                updatedPermissionTree.merge(blessing.getPermissionTree());
             }
         }
 
+        //re-associate listeners with rules
         mNearestAncestors.clear();
         for (String path : mPermissionValueEventListeners.keySet()) {
-            String nearestAncestor = getNearestCommonAncestor(path, updatedPermissions.keySet());
+            String nearestAncestor = Utils.getNearestCommonAncestor(path, updatedPermissionTree.keySet());
             if (nearestAncestor != null) {
                 mNearestAncestors.put(nearestAncestor, path);
             }
@@ -112,38 +115,37 @@ public class PermissionManager {
 
         Set<String> changedPermissions = new HashSet<>();
 
-        Set<String> removedPermissions = new HashSet<>(mCachedPermissions.keySet());
-        removedPermissions.removeAll(updatedPermissions.keySet());
+        //determine removed permissions
+        Sets.SetView<String> removedPermissions = Sets.difference(mPermissionTree.keySet(), updatedPermissionTree.keySet());
         for (String path : removedPermissions) {
-            mCachedPermissions.remove(path);
-            String newPath = getNearestCommonAncestor(path, updatedPermissions.keySet());
-            changedPermissions.add(newPath);   //reset to default
-        }
-
-        for (String path : updatedPermissions.keySet()) {
-            int current = updatedPermissions.get(path);
-            if (!mCachedPermissions.containsKey(path)) {
-                mCachedPermissions.put(path, current);
+            String newPath = Utils.getNearestCommonAncestor(path, updatedPermissionTree.keySet());
+            int previous = mPermissionTree.getPermissions(path);
+            int current = updatedPermissionTree.getPermissions(newPath);
+            if (previous != current) {
                 changedPermissions.add(path);
-            } else {
-                int previous = mCachedPermissions.get(path);
-                if (previous != current) {
-                    mCachedPermissions.put(path, current);
-                    changedPermissions.add(path);
-                }
             }
         }
 
+        //compare previous tree
+        for (Blessing.Permission permission : updatedPermissionTree.values()) {
+            int previous = mPermissionTree.getPermissions(permission.path);
+            int current = updatedPermissionTree.getPermissions(permission.path);
+            if (previous != current) {
+                changedPermissions.add(permission.path);
+            }
+        }
+
+        mPermissionTree = updatedPermissionTree;
+
+        //notify listeners
         for (String path : changedPermissions) {
             onPermissionsChange(path);
         }
-
-
     }
 
     //call all the listeners effected by a permission change at this path
     void onPermissionsChange(String path) {
-        int permission = getPermission(path);
+        int permission = getPermissions(path);
         if (mNearestAncestors.containsKey(path)) {
             for (String listenerPath : mNearestAncestors.get(path)) {
                 if (mPermissionValueEventListeners.containsKey(listenerPath)) {
@@ -155,75 +157,91 @@ public class PermissionManager {
         }
     }
 
-    private ValueEventListener grantedBlessingListener = new ValueEventListener() {
-        @Override
-        public void onDataChange(DataSnapshot dataSnapshot) {
-            if (dataSnapshot.exists()) {
-                for (DataSnapshot blessingSnap : dataSnapshot.getChildren()) {
-                    Blessing blessing = new Blessing(blessingSnap);
-                    mGrantedBlessings.put(blessing.getId(), blessing);
-                }
+
+    public Set<PermissionRequest> getRequests(String path) {
+        Set<PermissionRequest> result = new HashSet<>();
+        for (PermissionRequest request : mRequests.values()) {
+            if (getAllPaths(request.getPath()).contains(path)) {
+                result.add(request);
             }
         }
-
-        @Override
-        public void onCancelled(DatabaseError databaseError) {
-
-        }
-    };
-
-    void onBlessingRemoved(DataSnapshot snapshot) {
-        Blessing removedBlessing = mBlessings.remove(snapshot.getKey());
-        refreshPermissions();
+        return result;
     }
 
-    public Blessing getGrantedBlessing(String target) {
-        return mGrantedBlessings.get(target);
+    public PermissionRequest getRequest(String rId) {
+        return mRequests.get(rId);
     }
 
-    static String getNearestCommonAncestor(String path, Set<String> ancestors) {
-        if (path.startsWith("/")) {
-            throw new IllegalArgumentException("Path can't start with /");
-        }
-        if (ancestors.contains(path)) {
-            return path;
-        }
-        String subpath = path;
-        int index;
-        while ((index = subpath.lastIndexOf("/")) != -1) {
-            subpath = subpath.substring(0, index);
-            if (ancestors.contains(subpath)) {
-                return subpath;
-            }
-        }
 
-        return null;
+    public Blessing getRootBlessing() {
+        return rootBlessing;
+    }
+
+    public Set<Blessing> getReceivedBlessings() {
+        Set<Blessing> result = new HashSet<>();
+        for (String target : mBlessingTargets) {
+            result.addAll(mBlessingsTable.column(target).values());
+        }
+        return result;
+    }
+
+    public Set<Blessing> getGrantedBlessings(String src) {
+        return new HashSet<>(mBlessingsTable.row(src).values());
+    }
+
+    public Blessing putBlessing(Blessing blessing) {
+        String source = blessing.getSource();
+        String target = blessing.getTarget();
+        mBlessings.put(blessing.getId(), blessing);
+        if (source == null) {
+            source = KEY_ROOT;
+        }
+        return mBlessingsTable.put(source, target, blessing);
+    }
+
+    public Blessing getBlessing(String id) {
+        return mBlessings.get(id);
+    }
+
+    public Blessing getBlessing(String source, String target) {
+        if (source == null) {
+            source = KEY_ROOT;
+        }
+        return mBlessingsTable.get(source, target);
+    }
+
+    public void removeBlessing(String rId) {
+        Blessing removedBlessing = mBlessings.remove(rId);
+        if (removedBlessing != null) {
+            mBlessingsTable.remove(removedBlessing.getSource(), removedBlessing.getTarget());
+
+        }
     }
 
     //return a blessing interface for granting/revoking permissions
+    //uses local device blessing as root
     public Blessing bless(String target) {
-        Blessing result = getGrantedBlessing(target);
-        if (result == null) {
-            result = new Blessing(target, this.mId, mBlessingsRef.push());
-            mGrantedBlessings.put(target, result);
-        }
-        return result;
+        return rootBlessing.bless(target);
+    }
+
+    public DatabaseReference getBlessingsRef() {
+        return mBlessingsRef;
     }
 
     private ChildEventListener requestListener = new ChildEventListener() {
         @Override
         public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-            onBlessingUpdated(dataSnapshot);
+            onRequestUpdated(dataSnapshot);
         }
 
         @Override
         public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-            onBlessingUpdated(dataSnapshot);
+            onRequestUpdated(dataSnapshot);
         }
 
         @Override
         public void onChildRemoved(DataSnapshot dataSnapshot) {
-            onBlessingRemoved(dataSnapshot);
+            onRequestRemoved(dataSnapshot);
         }
 
         @Override
@@ -237,45 +255,109 @@ public class PermissionManager {
         }
     };
 
+    public void finishRequest(String rId) {
+        //TODO: notify source entity and ignore instead of removing
+        mRequestsRef.child(rId).removeValue();
+    }
+
+    public void grantRequest(PermissionRequest request) {
+        Blessing blessing = bless(request.getSource());
+        blessing.setPermissions(request.getPath(), request.getPermissions());
+        finishRequest(request.getId());
+    }
+
     private void onRequestUpdated(DataSnapshot snapshot) {
-        if (!snapshot.exists()) return;
+        if (!snapshot.exists()) {
+            return;
+        }
 
         PermissionRequest request = snapshot.getValue(PermissionRequest.class);
-        if (request != null) {
-            mRequests.put(request.getId(), request);
-            //TODO: filter relevant requests
-            for (OnRequestListener listener : requestListeners) {
-                listener.onRequest(request);
+        if (request == null) {
+            return;
+        }
+
+        String requestPath = request.getPath();
+        if (requestPath == null) {
+            return;
+        }
+
+        //ignore local requests
+        if (mId.equals(request.getSource())) {
+            return;
+        }
+
+        //Check if request permissions can be granted by this instance
+        if ((getPermissions(requestPath) & request.getPermissions()) != request.getPermissions()) {
+            return;
+        }
+
+        String rId = request.getId();
+        String source = request.getSource();
+        mRequests.put(rId, request);
+
+        if (mSubscribedRequests.containsKey(rId)) {
+            for (OnRequestListener listener : new HashSet<>(mSubscribedRequests.get(rId))) {
+                if (!listener.onRequest(request, bless(source))) {
+                    //cancel subscription
+                    mSubscribedRequests.remove(rId, listener);
+                }
+            }
+        } else {
+            for (String path : getAllPaths(request.getPath())) {
+                for (OnRequestListener listener : mRequestListeners.get(path)) {
+                    if (listener.onRequest(request, bless(source))) {
+                        //add subscription
+                        mSubscribedRequests.put(request.getId(), listener);
+                    }
+                }
             }
         }
     }
 
-    //TODO: only notify listeners that returned true when the request was added
     private void onRequestRemoved(DataSnapshot snapshot) {
         mRequests.remove(snapshot.getKey());
         PermissionRequest request = snapshot.getValue(PermissionRequest.class);
-        if (request != null) {
-            for (OnRequestListener listener : requestListeners) {
-                listener.onRequestRemoved(request);
+        String source = request.getSource();
+        if (request != null && !mId.equals(source)) {    //ignore local requests
+            for (OnRequestListener listener : mSubscribedRequests.removeAll(request.getId())) {
+                listener.onRequestRemoved(request, bless(source));
             }
         }
     }
 
+    //allows
+    private Set<String> getAllPaths(String path) {
+        Set<String> result = new HashSet<>();
+        result.add(path);
+        result.add("*");
+        String subpath = path;
+        int index;
+        while ((index = subpath.lastIndexOf("/")) != -1) {
+            subpath = subpath.substring(0, index);
+            result.add(subpath + "/*");
+        }
+        return result;
+    }
 
     private ChildEventListener blessingListener = new ChildEventListener() {
         @Override
-        public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-            onBlessingUpdated(dataSnapshot);
+        public void onChildAdded(DataSnapshot snapshot, String s) {
+            Blessing receivedBlessing = Blessing.fromSnapshot(PermissionManager.this, snapshot);
+            receivedBlessing.addListener(blessingChangedListner);
         }
 
         @Override
         public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-            onBlessingUpdated(dataSnapshot);
         }
 
         @Override
         public void onChildRemoved(DataSnapshot dataSnapshot) {
-            onBlessingRemoved(dataSnapshot);
+            Blessing removedBlessing = mBlessings.remove(dataSnapshot.getKey());
+            if (removedBlessing != null) {
+                removedBlessing.removeListener(blessingChangedListner);
+                mBlessingsTable.remove(removedBlessing.getSource(), removedBlessing.getTarget());
+                refreshPermissions();
+            }
         }
 
         @Override
@@ -289,29 +371,30 @@ public class PermissionManager {
         }
     };
 
-    public int getPermission(String path) {
-        if (mCachedPermissions.containsKey(path))
-            return mCachedPermissions.get(path);
-        int result = getCombinedPermission(path);
-        mCachedPermissions.put(path, result);
-        return result;
-    }
-
-    private int getCombinedPermission(String path) {
-        int current = 0;
-        for (Blessing blessing : mBlessings.values()) {
-            current = blessing.getPermissionAt(path, current);
+    private Blessing.OnBlessingUpdatedListener blessingChangedListner = new Blessing.OnBlessingUpdatedListener() {
+        @Override
+        public void onBlessingUpdated(Blessing blessing) {
+            refreshPermissions();
         }
-        return current;
+
+        @Override
+        public void onBlessingRemoved(Blessing blessing) {
+            refreshPermissions();
+        }
+    };
+
+
+    public int getPermissions(String path) {
+        return mPermissionTree.getPermissions(path);
     }
 
     public OnPermissionChangeListener addPermissionEventListener(String path, OnPermissionChangeListener listener) {
         int current = FLAG_DEFAULT;
         mPermissionValueEventListeners.put(path, listener);
 
-        String nearestAncestor = getNearestCommonAncestor(path, mCachedPermissions.keySet());
+        String nearestAncestor = Utils.getNearestCommonAncestor(path, mPermissionTree.keySet());
         if (nearestAncestor != null) {
-            current = getPermission(nearestAncestor);
+            current = getPermissions(nearestAncestor);
             mNearestAncestors.put(nearestAncestor, path);
         }
         listener.onPermissionChange(current);
@@ -320,50 +403,83 @@ public class PermissionManager {
 
     public void removePermissionEventListener(String path, OnPermissionChangeListener listener) {
         mPermissionValueEventListeners.remove(path, listener);
-
-        String nca = getNearestCommonAncestor(path, mCachedPermissions.keySet());
+        String nca = Utils.getNearestCommonAncestor(path, mPermissionTree.keySet());
         mNearestAncestors.remove(nca, path);
 
     }
 
-    public void removeOnRequestListener(PermissionManager.OnRequestListener requestListener) {
-        requestListeners.remove(requestListener);
+
+    public void removeOnRequestListener(String path, OnRequestListener requestListener) {
+        mRequestListeners.remove(path, requestListener);
+        if (mRequestListeners.values().contains(requestListener)) {
+            //TODO: this doesn't catch cases where one request listener unsubscribed
+            for (Map.Entry<String, OnRequestListener> entry : mSubscribedRequests.entries()) {
+                if (entry.getValue().equals(requestListener)) {
+                    String rId = entry.getKey();
+                    PermissionRequest request = mRequests.get(rId);
+                    if (getAllPaths(request.getPath()).contains(path)) {
+                        mSubscribedRequests.remove(rId, requestListener);
+                    }
+                }
+            }
+
+        } else {
+            mSubscribedRequests.values().remove(requestListener);
+        }
     }
 
-    public PermissionManager.OnRequestListener addOnRequestListener(PermissionManager.OnRequestListener requestListener) {
-        requestListeners.add(requestListener);
+    public OnRequestListener addOnRequestListener(String path, OnRequestListener requestListener) {
+        mRequestListeners.put(path, requestListener);
+        for (Map.Entry<String, PermissionRequest> entry : mRequests.entrySet()) {
+            String rId = entry.getKey();
+            PermissionRequest request = entry.getValue();
+            Set<String> requestPaths = getAllPaths(request.getPath());
+            if (requestPaths.contains(path)) {
+                String source = request.getSource();
+                if (requestListener.onRequest(request, bless(source))) {
+                    mSubscribedRequests.put(rId, requestListener);
+                }
+            }
+        }
         return requestListener;
     }
 
-    public void removeOnReferralListener(String path, OnReferralListener referralListener) {
-        referralListeners.remove(path, referralListener);
+    public PermissionRequest.Builder request(String path, String group) {
+        PermissionRequest.Builder builder = mActiveRequests.get(group, path);
+        if (builder == null) {
+            builder = new PermissionRequest.Builder(mRequestsRef.push(), path, mId);
+            mActiveRequests.put(group, path, builder);
+        }
+        return builder;
     }
 
-    public OnReferralListener addOnReferralListener(String path, OnReferralListener referralListener) {
-        referralListeners.put(path, referralListener);
-        return referralListener;
+    public void cancelRequests(String group) {
+        Collection<PermissionRequest.Builder> builders = mActiveRequests.row(group).values();
+        for (PermissionRequest.Builder builder : builders) {
+            builder.cancel();
+        }
+        builders.clear();
     }
 
-    public void refer(PermissionReferral referral) {
+    public void cancelRequest(String group, String path) {
+        PermissionRequest.Builder builder = mActiveRequests.remove(group, path);
+        if (builder != null) {
+            builder.cancel();
+        }
     }
 
-    public void request(PermissionRequest request) {
-        if (request == null)
-            throw new IllegalArgumentException("null request");
-
-        DatabaseReference requestRef = mRequestsRef.push();
-        request.setId(requestRef.getKey());
-        requestRef.setValue(request);
+    public void onDestroy() {
+        mBlessingsRef.removeEventListener(blessingListener);
+        mRequestsRef.removeEventListener(requestListener);
+        for (Blessing blessing : new HashSet<Blessing>(mBlessings.values())) {
+            blessing.revoke();
+        }
     }
 
     public interface OnRequestListener {
-        boolean onRequest(PermissionRequest request);
+        boolean onRequest(PermissionRequest request, Blessing blessing);
 
-        void onRequestRemoved(PermissionRequest request);
-    }
-
-    public interface OnReferralListener {
-        void onReferral();
+        void onRequestRemoved(PermissionRequest request, Blessing blessing);
     }
 
     public interface OnPermissionChangeListener {

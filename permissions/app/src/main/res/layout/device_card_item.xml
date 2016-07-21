@@ -5,11 +5,12 @@
     android:layout_height="80dp"
     app:contentPadding="6dp"
     app:cardUseCompatPadding="true">
-    <ImageView
+    <com.joanzapata.iconify.widget.IconTextView
         android:id="@+id/card_leading"
         android:layout_width="62dp"
         android:layout_height="62dp"
-        android:src="@drawable/ic_phone_android_black_24dp"/>
+        android:textSize="62dp"
+        android:text="{md-phone-android}"/>
     <TextView
         android:id="@+id/card_title"
         android:layout_width="wrap_content"

@@ -4,7 +4,9 @@
 
 package examples.baku.io.permissions;
 
-import java.security.Permission;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ServerValue;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,12 +17,18 @@ import java.util.Map;
 //TODO: multiple resources (Request groups)
 public class PermissionRequest {
 
-    private String id;
-    private String source;
-    private Map<String, Integer> permissions = new HashMap<>();
-    private Map<String, String> description= new HashMap<>();
+    public static final String EXTRA_TITLE = "title";
 
-    public PermissionRequest(){}
+    private String id;
+    private String path;
+    private String source;
+    private int permissions;
+    private int flags;
+    private Map<String, String> extras = new HashMap<>();
+    private long timeStamp;
+
+    public PermissionRequest() {
+    }
 
     public String getSource() {
         return source;
@@ -30,20 +38,13 @@ public class PermissionRequest {
         this.source = source;
     }
 
-    public Map<String, Integer> getPermissions() {
-        return permissions;
+
+    public Map<String, String> getExtras() {
+        return extras;
     }
 
-    public void setPermissions(Map<String, Integer> permissions) {
-        this.permissions = permissions;
-    }
-
-    public Map<String, String> getDescription() {
-        return description;
-    }
-
-    public void setDescription(Map<String, String> description) {
-        this.description = description;
+    public void setExtras(Map<String, String> extras) {
+        this.extras = extras;
     }
 
     public String getId() {
@@ -54,12 +55,89 @@ public class PermissionRequest {
         this.id = id;
     }
 
-    public static class Builder{
-        private PermissionRequest request;
+    public String getPath() {
+        return path;
+    }
 
-        public Builder(String path){
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public int getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(int permissions) {
+        this.permissions = permissions;
+    }
+
+    public int getFlags() {
+        return flags;
+    }
+
+    public void setFlags(int flags) {
+        this.flags = flags;
+    }
+
+    public Map<String, String> getTimeStamp() {
+        return ServerValue.TIMESTAMP;
+    }
+
+    public void setTimeStamp(long timeStamp) {
+        this.timeStamp = timeStamp;
+    }
+
+    //accept suggested permissions
+    public void grant(PermissionManager manager) {
+        manager.grantRequest(this);
+    }
+
+    public void finish(PermissionManager manager) {
+        manager.finishRequest(id);
+    }
+
+    public static class Builder {
+        private PermissionRequest request;
+        private DatabaseReference ref;
+
+        public Builder(DatabaseReference ref, String path, String source) {
+            this.ref = ref;
             this.request = new PermissionRequest();
+            request.setId(ref.getKey());
+            request.setPath(path);
+            request.setSource(source);
         }
+
+        public PermissionRequest.Builder putExtra(String key, String value) {
+            this.request.extras.put(key, value);
+            return this;
+        }
+
+
+        public PermissionRequest.Builder setPermissions(int suggested) {
+            request.setPermissions(suggested);
+            return this;
+        }
+
+        public int getFlags() {
+            return request.getFlags();
+        }
+
+        public PermissionRequest.Builder setFlags(int flags) {
+            this.request.flags = flags;
+            return this;
+        }
+
+        public void cancel() {
+            this.ref.removeValue();
+        }
+
+        public PermissionRequest udpate() {
+            //TODO: check valid
+            this.ref.setValue(request);
+            return request;
+        }
+
     }
 
 }

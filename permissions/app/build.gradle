@@ -6,7 +6,7 @@ android {
 
     defaultConfig {
         applicationId "examples.baku.io.permissions"
-        minSdkVersion 22
+        minSdkVersion 23
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
@@ -32,6 +32,7 @@ dependencies {
     compile 'com.android.support:recyclerview-v7:23.4.0'
     compile 'com.google.guava:guava:19.0'
     compile 'org.bitbucket.cowwoc.diff-match-patch:diff-match-patch:1.0'
+    compile 'com.joanzapata.iconify:android-iconify-material:2.2.2'
 }
 
 

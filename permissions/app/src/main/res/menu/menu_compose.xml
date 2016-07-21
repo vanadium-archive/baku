@@ -5,7 +5,7 @@
         android:id="@+id/action_cast"
         android:title="Cast Message"
         android:orderInCategory="100"
-        android:icon="@drawable/ic_cast_white_24dp"
+        android:icon="@android:drawable/ic_menu_send"
         app:showAsAction="always" />
     <item
         android:id="@+id/action_delete"

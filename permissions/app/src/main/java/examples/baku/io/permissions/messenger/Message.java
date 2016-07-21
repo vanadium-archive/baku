@@ -7,6 +7,9 @@ package examples.baku.io.permissions.messenger;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import com.google.firebase.database.ServerValue;
+
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -20,6 +23,7 @@ public class Message implements Parcelable{
     private String source;
     private String message;
     private boolean callback;
+    private long timeStamp;
 
     public Message(){}
 
@@ -91,17 +95,13 @@ public class Message implements Parcelable{
     }
 
 
-//    public Message getChildInstance(){
-//        Message result = new Message();
-//        result.id = UUID.randomUUID().toString();
-//        result.parent = this.id;
-//        result.type = this.type;
-//        result.target = this.target;
-//        result.source = this.source;
-//        result.message = this.message;
-//        result.callback = this.callback;
-//        return result;
-//    }
+    public Map<String,String> getTimeStamp() {
+        return ServerValue.TIMESTAMP;
+    }
+
+    public void setTimeStamp(long timeStamp) {
+        this.timeStamp = timeStamp;
+    }
 
     @Override
     public int describeContents() {
