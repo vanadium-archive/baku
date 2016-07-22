@@ -37,6 +37,8 @@ class DeviceSpec implements GroupKeyProvider {
     List<String> checkedProperties = [
       'device-id',
       'model-name',
+      'os-version',
+      'api-level',
       'screen-size'
     ];
     return checkedProperties.every(

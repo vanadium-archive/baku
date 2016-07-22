@@ -3,4 +3,4 @@
 // license that can be found in the LICENSE file.
 
 const String defaultTempSpecsName = 'tmp.spec';
-const String defaultCodeCoverageDirectoryPath = 'coverage/code_coverage';
+const String defaultCodeCoverageDirectoryPath = 'coverage';
