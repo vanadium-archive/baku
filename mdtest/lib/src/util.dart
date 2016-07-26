@@ -10,6 +10,11 @@ import 'package:glob/glob.dart';
 
 import 'globals.dart';
 
+// '=' * 20
+const String doubleLineSeparator = '====================';
+// '-' * 20
+const String singleLineSeparator = '--------------------';
+
 int minLength(List<String> elements) {
   if (elements == null || elements.isEmpty) return -1;
   return elements.map((String e) => e.length).reduce(min);
@@ -63,6 +68,7 @@ bool deleteDirectories(Iterable<String> dirPaths) {
   return true;
 }
 
+/// Get a file with unique name under the given directory.
 File getUniqueFile(Directory dir, String baseName, String ext) {
   int i = 1;
 

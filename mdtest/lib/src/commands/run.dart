@@ -72,7 +72,7 @@ class RunCommand extends MDTestCommand {
 
     assert(testsFailed != null);
     if (testsFailed) {
-      printError('Some tests failed');
+      printInfo('Some tests failed');
     } else {
       printInfo('All tests passed');
     }

@@ -7,11 +7,11 @@ abstract class GroupKeyProvider {
   String groupKey();
 }
 
-Map<String, List<dynamic>> buildCluster(List<dynamic> elements) {
-  Map<String, List<dynamic>> clusters = <String, List<dynamic>>{};
+Map<String, List<dynamic>> buildGroups(List<dynamic> elements) {
+  Map<String, List<dynamic>> groups = <String, List<dynamic>>{};
   elements.forEach((dynamic element) {
-    clusters.putIfAbsent(element.groupKey(), () => <dynamic>[])
+    groups.putIfAbsent(element.groupKey(), () => <dynamic>[])
             .add(element);
   });
-  return clusters;
+  return groups;
 }

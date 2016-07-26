@@ -35,7 +35,8 @@ abstract class MDTestCommand extends Command {
   }
 
   void usesCoverageFlag() {
-    argParser.addFlag('coverage',
+    argParser.addFlag(
+      'coverage',
       defaultsTo: false,
       negatable: false,
       help: 'Whether to collect coverage information.'
@@ -43,7 +44,8 @@ abstract class MDTestCommand extends Command {
   }
 
   void usesTAPReportOption() {
-    argParser.addOption('format',
+    argParser.addOption(
+      'format',
       defaultsTo: 'none',
       allowed: ['none', 'tap'],
       help: 'Format to be used to display test output result.'

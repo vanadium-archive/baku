@@ -73,18 +73,11 @@ Future<dynamic> loadSpecs(ArgResults argResults) async {
     dynamic newSpecs = JSON.decode(await new File(specsPath).readAsString());
     // Get the parent directory of the specs file
     String rootPath = new File(specsPath).parent.absolute.path;
-    // Normalize the 'test-path' in the specs file and add extra test paths
-    // from the command line argument
-    List<String> testPathsFromSpec
-      = listFilePathsFromGlobPatterns(rootPath, newSpecs['test-paths']);
-    printTrace('Test paths from spec: $testPathsFromSpec');
+    // Normalize the 'test-path' specified from the command line argument
     List<String> testPathsFromCommandLine
       = listFilePathsFromGlobPatterns(Directory.current.path, argResults.rest);
     printTrace('Test paths from command line: $testPathsFromCommandLine');
-    newSpecs['test-paths'] = mergeWithoutDuplicate(
-      testPathsFromSpec,
-      testPathsFromCommandLine
-    );
+    newSpecs['test-paths'] = testPathsFromCommandLine;
     // Normalize the 'app-path' in the specs file
     newSpecs['devices']?.forEach((String name, Map<String, String> map) {
       map['app-path'] = normalizePath(rootPath, map['app-path']);

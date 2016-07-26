@@ -41,3 +41,16 @@ class VerboseLogger extends Logger {
     stderr.writeln('[TRACE] $message');
   }
 }
+
+class DumbLogger extends Logger {
+  @override
+  void info(String message) {}
+
+  @override
+  void error(String message) {
+    stderr.writeln('[ERROR] $message');
+  }
+
+  @override
+  void trace(String message) {}
+}

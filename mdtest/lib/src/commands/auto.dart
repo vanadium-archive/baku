@@ -55,15 +55,16 @@ class AutoCommand extends MDTestCommand {
       return 1;
     }
 
-    Map<String, List<Device>> deviceClusters = buildCluster(_devices);
-    Map<String, List<DeviceSpec>> deviceSpecClusters
-      = buildCluster(allDeviceSpecs);
+    Map<String, List<Device>> deviceGroups = buildGroups(_devices);
+    Map<String, List<DeviceSpec>> deviceSpecGroups
+      = buildGroups(allDeviceSpecs);
 
-    GroupInfo clusterInfo = new GroupInfo(deviceClusters, deviceSpecClusters);
+    GroupInfo groupInfo = new GroupInfo(deviceGroups, deviceSpecGroups);
     Map<CoverageMatrix, Map<DeviceSpec, Device>> cov2match
-      = buildCoverage2MatchMapping(allDeviceMappings, clusterInfo);
+      = buildCoverage2MatchMapping(allDeviceMappings, groupInfo);
+    CoverageMatrix appDeviceCoverageMatrix = new CoverageMatrix(groupInfo);
     Set<Map<DeviceSpec, Device>> chosenMappings
-      = findMinimumMappings(cov2match, clusterInfo);
+      = findMinimumMappings(cov2match, appDeviceCoverageMatrix);
     printMatches(chosenMappings);
 
     Map<String, CoverageCollector> collectorPool
@@ -73,10 +74,11 @@ class AutoCommand extends MDTestCommand {
     List<int> failRounds = [];
     int roundNum = 1;
     for (Map<DeviceSpec, Device> deviceMapping in chosenMappings) {
+      printInfo('Begining of Round #$roundNum');
       MDTestRunner runner = new MDTestRunner();
 
       if (await runner.runAllApps(deviceMapping) != 0) {
-        printError('Error when running applications');
+        printError('Error when running applications on #Round $roundNum');
         await uninstallTestedApps(deviceMapping);
         errRounds.add(roundNum++);
         continue;
@@ -99,6 +101,8 @@ class AutoCommand extends MDTestCommand {
         printInfo('All tests in Round #${roundNum++} passed');
       }
 
+      appDeviceCoverageMatrix.hit(deviceMapping);
+
       if (argResults['coverage']) {
         printTrace('Collecting code coverage hitmap (this may take some time)');
         buildCoverageCollectionTasks(deviceMapping, collectorPool);
@@ -106,10 +110,18 @@ class AutoCommand extends MDTestCommand {
       }
 
       await uninstallTestedApps(deviceMapping);
+      printInfo('End of Round #$roundNum\n');
+    }
+
+    if (!briefMode) {
+      printHitmap(
+        'App-device coverage hit matrix:',
+        appDeviceCoverageMatrix
+      );
     }
 
     if (errRounds.isNotEmpty) {
-      printError('Error in Round #${errRounds.join(', #')}');
+      printInfo('Error in Round #${errRounds.join(', #')}');
       return 1;
     }
 
@@ -134,7 +146,13 @@ class AutoCommand extends MDTestCommand {
     usesTAPReportOption();
     argParser.addOption('groupby',
       defaultsTo: 'device-id',
-      allowed: ['device-id', 'model-name', 'os-version', 'api-level', 'screen-size'],
+      allowed: [
+        'device-id',
+        'model-name',
+        'os-version',
+        'api-level',
+        'screen-size'
+      ],
       help: 'Device property used to group devices to'
             'adjust app-device coverage criterion.'
     );

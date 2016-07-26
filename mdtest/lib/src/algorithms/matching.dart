@@ -9,6 +9,8 @@ import 'dart:io';
 import '../base/common.dart';
 import '../mobile/device.dart';
 import '../mobile/device_spec.dart';
+import '../util.dart';
+import '../globals.dart';
 
 /// Find all matched devices for each device spec
 Map<DeviceSpec, Set<Device>> findIndividualMatches(
@@ -136,15 +138,27 @@ bool _findAllMatchingDeviceMappings(
 
 /// Print a collection of matches which is iterable.
 void printMatches(Iterable<Map<DeviceSpec, Device>> matches) {
+  if (briefMode) {
+    return;
+  }
   StringBuffer sb = new StringBuffer();
   int roundNum = 1;
   sb.writeln('=' * 10);
   for (Map<DeviceSpec, Device> match in matches) {
+    int startIndx = beginOfDiff(
+      new List.from(
+        match.keys.map(
+          (DeviceSpec spec) {
+            return spec.groupKey();
+          }
+        )
+      )
+    );
     sb.writeln('Round $roundNum:');
     match.forEach((DeviceSpec spec, Device device) {
-      sb.writeln('[Spec Cluster Key: ${spec.groupKey()}]'
+      sb.writeln('<Spec Group Key: ${spec.groupKey().substring(startIndx)}>'
                  ' -> '
-                 '[Device Cluster Key: ${device.groupKey()}]');
+                 '<Device Group Key: ${device.groupKey()}>');
     });
     roundNum++;
   }

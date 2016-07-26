@@ -12,3 +12,5 @@ void printInfo(String message) => logger.info(message);
 void printError(String message) => logger.error(message);
 
 void printTrace(String message) => logger.trace(message);
+
+bool briefMode = false;
