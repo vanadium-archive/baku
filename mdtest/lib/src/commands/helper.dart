@@ -116,7 +116,8 @@ class MDTestRunner {
         break;
     }
     process.stderr.drain();
-    return await process.exitCode;
+    process.kill();
+    return 0;
   }
 
   /// Create a process and invoke 'pub run test --reporter json [testPath]' to
@@ -128,13 +129,23 @@ class MDTestRunner {
       'pub',
       ['run', 'test', '--reporter', 'json', '$testPath']
     );
-    await reporter.report(
+    bool hasTestOutput = await reporter.report(
       process.stdout
              .transform(new Utf8Decoder())
              .transform(new LineSplitter())
     );
-    process.stderr.drain();
-    return await process.exitCode;
+    if (hasTestOutput) {
+      process.stderr.drain();
+      return await process.exitCode;
+    }
+
+    Stream stderrStream = process.stderr
+                                 .transform(new Utf8Decoder())
+                                 .transform(new LineSplitter());
+    await for (var line in stderrStream) {
+      print(line.toString().trim());
+    }
+    return 1;
   }
 
   /// Kill all app processes

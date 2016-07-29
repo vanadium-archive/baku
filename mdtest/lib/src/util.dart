@@ -71,7 +71,6 @@ bool deleteDirectories(Iterable<String> dirPaths) {
 /// Get a file with unique name under the given directory.
 File getUniqueFile(Directory dir, String baseName, String ext) {
   int i = 1;
-
   while (true) {
     String name = '${baseName}_${i.toString().padLeft(2, '0')}.$ext';
     File file = new File(path.join(dir.path, name));
@@ -79,6 +78,15 @@ File getUniqueFile(Directory dir, String baseName, String ext) {
       return file;
     i++;
   }
+}
+
+/// Create a file if it does not exist.  If the path points to a file, delete
+/// it and create a new file.  Otherwise, report
+File createNewFile(String path) {
+  File file = new File('$path');;
+  if(file.existsSync())
+    file.deleteSync();
+  return file..createSync(recursive: true);
 }
 
 /// Return the absolute paths of a list of files based on a list of glob

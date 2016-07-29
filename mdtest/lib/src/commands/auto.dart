@@ -33,7 +33,7 @@ class AutoCommand extends MDTestCommand {
     printInfo('Running "mdtest auto command" ...');
 
     this._specs = await loadSpecs(argResults);
-    if (sanityCheckSpecs(_specs, argResults['specs']) != 0) {
+    if (sanityCheckSpecs(_specs, argResults['spec']) != 0) {
       printError('Test spec does not meet requirements.');
       return 1;
     }
@@ -137,7 +137,7 @@ class AutoCommand extends MDTestCommand {
         return 1;
     }
 
-    return 0;
+    return failRounds.isNotEmpty ? 1 : 0;
   }
 
   AutoCommand() {

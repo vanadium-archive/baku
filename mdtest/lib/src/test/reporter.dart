@@ -25,11 +25,14 @@ class TAPReporter {
     );
   }
 
-  Future<Null> report(Stream jsonOutput) async {
+  Future<bool> report(Stream jsonOutput) async {
+    bool hasTestOutput = false;
     await for (var line in jsonOutput) {
       convertToTAPFormat(line.toString().trim());
+      hasTestOutput = true;
     }
     testEventMapping.clear();
+    return hasTestOutput;
   }
 
   void printSummary() {

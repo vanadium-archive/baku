@@ -23,6 +23,8 @@ class DeviceSpec implements GroupKeyProvider {
   String get nickName => specProperties['nickname'];
   String get deviceID => specProperties['device-id'];
   String get deviceModelName => specProperties['model-name'];
+  String get deviceOSVersion => specProperties['os-version'];
+  String get deviceAPILevel => specProperties['api-level'];
   String get deviceScreenSize => specProperties['screen-size'];
   String get appRootPath => specProperties['app-root'];
   String get appPath => specProperties['app-path'];
@@ -61,13 +63,15 @@ class DeviceSpec implements GroupKeyProvider {
   String toString() => '<nickname: $nickName, '
                        'id: $deviceID, '
                        'model name: $deviceModelName, '
+                       'os version: $deviceOSVersion, '
+                       'api level: $deviceAPILevel, '
                        'screen size: $deviceScreenSize, '
                        'port: $observatoryUrl, '
                        'app path: $appPath>';
 }
 
 Future<dynamic> loadSpecs(ArgResults argResults) async {
-  String specsPath = argResults['specs'];
+  String specsPath = argResults['spec'];
   try {
     // Read specs file into json format
     dynamic newSpecs = JSON.decode(await new File(specsPath).readAsString());
@@ -80,8 +84,8 @@ Future<dynamic> loadSpecs(ArgResults argResults) async {
     newSpecs['test-paths'] = testPathsFromCommandLine;
     // Normalize the 'app-path' in the specs file
     newSpecs['devices']?.forEach((String name, Map<String, String> map) {
-      map['app-path'] = normalizePath(rootPath, map['app-path']);
       map['app-root'] = normalizePath(rootPath, map['app-root']);
+      map['app-path'] = normalizePath(map['app-root'], map['app-path']);
     });
     return newSpecs;
   } on FileSystemException {
