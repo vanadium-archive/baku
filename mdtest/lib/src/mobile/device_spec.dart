@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:pub_semver/pub_semver.dart';
 
 import 'device.dart';
 import 'key_provider.dart';
@@ -20,11 +21,11 @@ class DeviceSpec implements GroupKeyProvider {
 
   Map<String, String> specProperties;
 
+  String get platform => specProperties['platform'];
   String get nickName => specProperties['nickname'];
   String get deviceID => specProperties['device-id'];
   String get deviceModelName => specProperties['model-name'];
   String get deviceOSVersion => specProperties['os-version'];
-  String get deviceAPILevel => specProperties['api-level'];
   String get deviceScreenSize => specProperties['screen-size'];
   String get appRootPath => specProperties['app-root'];
   String get appPath => specProperties['app-path'];
@@ -37,21 +38,34 @@ class DeviceSpec implements GroupKeyProvider {
   /// Checked property names includes: device-id, model-name, screen-size
   bool matches(Device device) {
     List<String> checkedProperties = [
+      'platform',
       'device-id',
       'model-name',
-      'os-version',
-      'api-level',
       'screen-size'
     ];
     return checkedProperties.every(
       (String propertyName) => isNullOrEqual(propertyName, device)
-    );
+    )
+    &&
+    osVersionIsNullOrMatches(device);
   }
 
   bool isNullOrEqual(String propertyName, Device device) {
     return specProperties[propertyName] == null
            ||
            specProperties[propertyName] == device.properties[propertyName];
+  }
+
+  bool osVersionIsNullOrMatches(Device device) {
+    String osVersion = specProperties['os-version'];
+    if (osVersion == null) {
+      return true;
+    }
+    VersionConstraint versionConstraint
+      = new VersionConstraint.parse(osVersion);
+    return versionConstraint.allows(
+      new Version.parse(device.properties['os-version'])
+    );
   }
 
   @override
@@ -61,12 +75,12 @@ class DeviceSpec implements GroupKeyProvider {
 
   @override
   String toString() => '<nickname: $nickName, '
+                       'platform: $platform, '
                        'id: $deviceID, '
                        'model name: $deviceModelName, '
                        'os version: $deviceOSVersion, '
-                       'api level: $deviceAPILevel, '
                        'screen size: $deviceScreenSize, '
-                       'port: $observatoryUrl, '
+                       'observatory url: $observatoryUrl, '
                        'app path: $appPath>';
 }
 
@@ -103,8 +117,11 @@ Future<dynamic> loadSpecs(ArgResults argResults) async {
 /// Check if test spec meets the requirements.  If user does not specify any
 /// valid test paths neither from the test spec nor from the command line,
 /// report error.  If 'devices' property is not specified, report error.  If
-/// no device spec is specified, report error.  If screen size property is not
-/// one of 'small', 'normal', 'large' and 'xlarge', report error.  If app-root
+/// no device spec is specified, report error.  If platform property is not
+/// one of 'ios' or 'android', report error.  If os-version is specified, but
+/// platform is not specified, report error.  If os-version does not match
+/// semantic version, report error.  If screen size property is not one of
+/// 'small', 'normal', 'large' and 'xlarge', report error.  If app-root
 /// is not specified or is not a directory, report error.  If appPath is not
 /// specified or is not a file, report error.
 ///
@@ -122,20 +139,46 @@ int sanityCheckSpecs(dynamic spec, String specsPath) {
   }
   dynamic deviceSpecs = spec['devices'];
   if (deviceSpecs == null) {
-    printError('"devices" property is not specified in $specsPath');
+    printError('"devices" property is not specified in $specsPath.');
     return 1;
   }
   if (deviceSpecs.isEmpty) {
-    printError('No device spec is found in $specsPath');
+    printError('No device spec is found in $specsPath.');
     return 1;
   }
   for (String nickname in deviceSpecs.keys) {
     dynamic individualDeviceSpec = deviceSpecs[nickname];
+    List<String> platforms = <String>['ios', 'android'];
+    String platform = individualDeviceSpec['platform'];
+    if (platform != null && !platforms.contains(platform)) {
+      printError('Platform must be one of $platforms.');
+      return 1;
+    }
+    String osVersion = individualDeviceSpec['os-version'];
+    if (osVersion != null) {
+      if (platform == null) {
+        printError(
+          'You must also specify platform type if you specify os-version.'
+        );
+        return 1;
+      }
+      try {
+        new VersionConstraint.parse(osVersion);
+      } on FormatException {
+        printError(
+          'The os-version you specified does not meet the requirement of '
+          'semantic version.'
+        );
+        return 1;
+      } catch (e) {
+        printError('Unknown Exception when parsing os-vesion, details:\n $e.');
+        return 1;
+      }
+    }
     List<String> screenSizes = <String>['small', 'normal', 'large', 'xlarge'];
-    if (individualDeviceSpec['screen-size'] != null
-        &&
-        !screenSizes.contains(individualDeviceSpec['screen-size'])) {
-      printError('Screen size must be one of $screenSizes');
+    String screenSize = individualDeviceSpec['screen-size'];
+    if (screenSize != null && !screenSizes.contains(screenSize)) {
+      printError('Screen size must be one of $screenSizes.');
       return 1;
     }
     String appRootPath = individualDeviceSpec['app-root'];

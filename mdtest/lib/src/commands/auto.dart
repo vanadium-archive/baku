@@ -8,7 +8,6 @@ import 'helper.dart';
 import '../mobile/device.dart';
 import '../mobile/device_spec.dart';
 import '../mobile/key_provider.dart';
-import '../mobile/android.dart';
 import '../algorithms/coverage.dart';
 import '../algorithms/matching.dart';
 import '../globals.dart';
@@ -72,15 +71,17 @@ class AutoCommand extends MDTestCommand {
 
     List<int> errRounds = [];
     List<int> failRounds = [];
-    int roundNum = 1;
+    int roundNum = 0;
     for (Map<DeviceSpec, Device> deviceMapping in chosenMappings) {
+      roundNum++;
       printInfo('Begining of Round #$roundNum');
       MDTestRunner runner = new MDTestRunner();
 
       if (await runner.runAllApps(deviceMapping) != 0) {
         printError('Error when running applications on #Round $roundNum');
-        await uninstallTestedApps(deviceMapping);
-        errRounds.add(roundNum++);
+        await uninstallTestingApps(deviceMapping);
+        errRounds.add(roundNum);
+        printInfo('End of Round #$roundNum\n');
         continue;
       }
 
@@ -96,9 +97,9 @@ class AutoCommand extends MDTestCommand {
       assert(testsFailed != null);
       if (testsFailed) {
         printInfo('Some tests in Round #$roundNum failed');
-        failRounds.add(roundNum++);
+        failRounds.add(roundNum);
       } else {
-        printInfo('All tests in Round #${roundNum++} passed');
+        printInfo('All tests in Round #$roundNum passed');
       }
 
       appDeviceCoverageMatrix.hit(deviceMapping);
@@ -109,7 +110,7 @@ class AutoCommand extends MDTestCommand {
         await runCoverageCollectionTasks(collectorPool);
       }
 
-      await uninstallTestedApps(deviceMapping);
+      await uninstallTestingApps(deviceMapping);
       printInfo('End of Round #$roundNum\n');
     }
 
@@ -148,9 +149,9 @@ class AutoCommand extends MDTestCommand {
       defaultsTo: 'device-id',
       allowed: [
         'device-id',
+        'platform',
         'model-name',
         'os-version',
-        'api-level',
         'screen-size'
       ],
       help: 'Device property used to group devices to'

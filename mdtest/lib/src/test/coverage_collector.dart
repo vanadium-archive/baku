@@ -35,14 +35,22 @@ class CoverageCollector {
   }) async {
     Map<String, dynamic> data = await collect(host, port, false, false);
     Map<String, dynamic> hitmap = createHitmap(data['coverage']);
-    if (_globalHitmap == null)
+    if (_globalHitmap == null) {
       _globalHitmap = hitmap;
-    else
+    } else {
       mergeHitmaps(hitmap, _globalHitmap);
+    }
   }
 
   Future<Null> finishPendingJobs() async {
-    await Future.wait(_jobs.toList(), eagerError: true);
+    await Future.wait(
+      _jobs.toList(),
+      eagerError: true
+    ).catchError(
+      (e) {
+        print('Collecting coverage error: ${e.error}');
+      }
+    );
   }
 
   Future<String> finalizeCoverage(String appRootPath) async {

@@ -12,6 +12,23 @@ import '../mobile/device_spec.dart';
 import '../globals.dart';
 import '../util.dart';
 
+Future<List<String>> getAndroidDeviceIDs() async {
+  List<String> androidIDs = <String>[];
+  Process process = await Process.start('adb', ['devices']);
+  RegExp androidIDPattern = new RegExp(r'^(\S+)\s+device$');
+  Stream lineStream = process.stdout
+                             .transform(new Utf8Decoder())
+                             .transform(new LineSplitter());
+  await for (var line in lineStream) {
+    Match androidIDMatcher = androidIDPattern.firstMatch(line.toString());
+    if (androidIDMatcher != null) {
+      String androidID = androidIDMatcher.group(1);
+      androidIDs.add(androidID);
+    }
+  }
+  return androidIDs;
+}
+
 const String lockProp = 'mHoldingWakeLockSuspendBlocker';
 
 /// Check if the device is locked
@@ -23,8 +40,8 @@ Future<bool> _deviceIsLocked(Device device) async {
   bool isLocked;
   RegExp lockStatusPattern = new RegExp(lockProp + r'=(.*)');
   Stream lineStream = process.stdout
-                        .transform(new Utf8Decoder())
-                        .transform(new LineSplitter());
+                             .transform(new Utf8Decoder())
+                             .transform(new LineSplitter());
   await for (var line in lineStream) {
     Match lockMatcher = lockStatusPattern.firstMatch(line.toString());
     if (lockMatcher != null) {
@@ -61,51 +78,41 @@ Future<int> unlockDevice(Device device) async {
   return await wakeUpAndUnlockProcess.exitCode;
 }
 
-/// Uninstall tested apps
-Future<int> uninstallTestedApps(Map<DeviceSpec, Device> deviceMapping) async {
-  int result = 0;
+// Uninstall an Android app
+Future<int> uninstallAndroidTestedApp(DeviceSpec spec, Device device) async {
+  String androidManifestPath
+    = normalizePath(spec.appRootPath, 'android/AndroidManifest.xml');
+  String androidManifest = await new File(androidManifestPath).readAsString();
 
-  for (DeviceSpec spec in deviceMapping.keys) {
-    Device device = deviceMapping[spec];
-
-    String androidManifestPath
-      = normalizePath(spec.appRootPath, 'android/AndroidManifest.xml');
-    String androidManifest = await new File(androidManifestPath).readAsString();
-
-    RegExp packagePattern
-      = new RegExp(r'<manifest[\s\S]*?package="(\S+)"\s+[\s\S]*?>', multiLine: true);
-    Match packageMatcher = packagePattern.firstMatch(androidManifest);
-    if (packageMatcher == null) {
-      printError('Package name not found in $androidManifestPath');
-      return 1;
-    }
-    String packageName = packageMatcher.group(1);
-
-    Process uninstallProcess = await Process.start(
-      'adb',
-      ['-s', '${device.id}', 'uninstall', '$packageName']
-    );
-
-    Stream lineStream = uninstallProcess.stdout
-                         .transform(new Utf8Decoder())
-                         .transform(new LineSplitter());
-    await for (var line in lineStream) {
-      printTrace('Uninstall $packageName on device ${device.id}: ${line.toString().trim()}');
-    }
-
-    uninstallProcess.stderr.drain();
-    result += await uninstallProcess.exitCode;
-  }
-
-  if (result != 0) {
-    printError('Cannot uninstall testing apps from devices');
+  RegExp packagePattern
+    = new RegExp(r'<manifest[\s\S]*?package="(\S+)"\s+[\s\S]*?>', multiLine: true);
+  Match packageMatcher = packagePattern.firstMatch(androidManifest);
+  if (packageMatcher == null) {
+    printError('Package name not found in $androidManifestPath');
     return 1;
   }
-  return 0;
+  String packageName = packageMatcher.group(1);
+
+  Process uninstallProcess = await Process.start(
+    'adb',
+    ['-s', '${device.id}', 'uninstall', '$packageName']
+  );
+
+  Stream lineStream = uninstallProcess.stdout
+                       .transform(new Utf8Decoder())
+                       .transform(new LineSplitter());
+  await for (var line in lineStream) {
+    printTrace(
+      'Uninstall $packageName on device ${device.id}: ${line.toString().trim()}'
+    );
+  }
+
+  uninstallProcess.stderr.drain();
+  return uninstallProcess.exitCode;
 }
 
 /// Get device property
-Future<String> getProperty(String deviceID, String propName) async {
+Future<String> getAndroidProperty(String deviceID, String propName) async {
   ProcessResult results = await Process.run(
     'adb',
     ['-s', deviceID, 'shell', 'getprop', propName]
@@ -114,7 +121,7 @@ Future<String> getProperty(String deviceID, String propName) async {
 }
 
 /// Get device pixels and dpi to compute screen diagonal size in inches
-Future<String> getScreenSize(String deviceID) async {
+Future<String> getAndroidScreenSize(String deviceID) async {
   Process sizeProcess = await Process.start(
     'adb',
     ['-s', '$deviceID', 'shell', 'wm', 'size']
@@ -169,8 +176,20 @@ Future<String> getScreenSize(String deviceID) async {
   double yInch = ySize / density;
   double diagonalSize = sqrt(xInch * xInch + yInch * yInch);
 
-  if (diagonalSize < 3.5) return 'small';
-  if (diagonalSize < 5) return 'normal';
-  if (diagonalSize < 8) return 'large';
-  return 'xlarge';
+  return categorizeScreenSize(diagonalSize);
+}
+
+Future<Device> collectAndroidDeviceProps(String deviceID, {String groupKey}) async {
+  return new Device(
+    properties: <String, String> {
+      'platform': 'android',
+      'device-id': deviceID,
+      'model-name': await getAndroidProperty(deviceID, 'ro.product.model'),
+      'os-version': expandOSVersion(
+        await getAndroidProperty(deviceID, 'ro.build.version.release')
+      ),
+      'screen-size': await getAndroidScreenSize(deviceID)
+    },
+    groupKey: groupKey
+  );
 }

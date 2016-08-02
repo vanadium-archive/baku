@@ -10,6 +10,34 @@ import 'package:glob/glob.dart';
 
 import 'globals.dart';
 
+class OperatingSystemUtil {
+  String _os;
+  static OperatingSystemUtil instance;
+
+  factory OperatingSystemUtil() {
+    if (instance == null) {
+      instance = new OperatingSystemUtil._internal(Platform.operatingSystem);
+    }
+    return instance;
+  }
+
+  bool get isMacOS => _os == 'macos';
+  bool get isWindows => _os == 'windows';
+  bool get isLinux => _os == 'linux';
+
+  /// Return the path (with symlinks resolved) to the given executable, or `null`
+  /// if `which` was not able to locate the binary.
+  File which(String execName) {
+    ProcessResult result = Process.runSync('which', <String>[execName]);
+    if (result.exitCode != 0)
+      return null;
+    String path = result.stdout.trim().split('\n').first.trim();
+    return new File(new File(path).resolveSymbolicLinksSync());
+  }
+
+  OperatingSystemUtil._internal(this._os);
+}
+
 // '=' * 20
 const String doubleLineSeparator = '====================';
 // '-' * 20

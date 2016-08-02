@@ -41,7 +41,8 @@ class MDTestRunner {
   /// through the process output.  If no observatory port is found, then report
   /// error.
   Future<int> runApp(DeviceSpec deviceSpec, Device device) async {
-    if (await unlockDevice(device) != 0) {
+    // Currently, unlocking iOS device is not supported.
+    if (device.isAndroidDevice() && await unlockDevice(device) != 0) {
       printError('Device ${device.id} fails to wake up.');
       return 1;
     }
