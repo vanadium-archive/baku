@@ -21,7 +21,9 @@ class RunCommand extends MDTestCommand {
   final String name = 'run';
 
   @override
-  final String description = 'Run multi-device driver tests';
+  final String description
+    = 'Install and launch flutter applications on multiple devices and '
+      'execute test script to collect and report test results to the user.';
 
   dynamic _specs;
 
@@ -112,6 +114,7 @@ class RunCommand extends MDTestCommand {
   }
 
   RunCommand() {
+    usesBriefFlag();
     usesSpecsOption();
     usesCoverageFlag();
     usesTAPReportOption();

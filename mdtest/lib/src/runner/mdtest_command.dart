@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
+import '../base/logger.dart';
 import '../globals.dart';
 import 'mdtest_command_runner.dart';
 
@@ -21,11 +22,22 @@ abstract class MDTestCommand extends Command {
   @override
   MDTestCommandRunner get runner => super.runner;
 
+  bool _usesBriefFlag = false;
   bool _usesSpecsOption = false;
   bool _usesSpecTemplateOption = false;
   bool _usesTestTemplateOption = false;
   bool _usesSaveTestReportOption = false;
   bool _usesReportTypeOption = false;
+
+  void usesBriefFlag() {
+    argParser.addFlag(
+      'brief',
+      abbr: 'b',
+      negatable: false,
+      help: 'Disable logging, only report test execution result.'
+    );
+    _usesBriefFlag = true;
+  }
 
   void usesSpecsOption() {
     argParser.addOption(
@@ -120,6 +132,17 @@ abstract class MDTestCommand extends Command {
   Validator commandValidator;
 
   bool _commandValidator() {
+    if (_usesBriefFlag) {
+      if (globalResults['verbose'] && argResults['brief']) {
+        printError('--verbose flag conflicts with --brief flag');
+        return false;
+      }
+      if (argResults['brief']) {
+        defaultLogger = new DumbLogger();
+        briefMode = true;
+      }
+    }
+
     if (_usesSpecsOption) {
       String specsPath = argResults['spec'];
       if (specsPath == null) {

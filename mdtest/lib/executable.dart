@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:stack_trace/stack_trace.dart';
 
+import 'src/commands/doctor.dart';
 import 'src/commands/create.dart';
 import 'src/commands/run.dart';
 import 'src/commands/auto.dart';
@@ -17,6 +18,7 @@ import 'src/util.dart';
 
 Future<Null> main(List<String> args) async {
   MDTestCommandRunner runner = new MDTestCommandRunner()
+    ..addCommand(new DoctorCommand())
     ..addCommand(new CreateCommand())
     ..addCommand(new RunCommand())
     ..addCommand(new AutoCommand())
