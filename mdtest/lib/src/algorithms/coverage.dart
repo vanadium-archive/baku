@@ -93,6 +93,49 @@ class CoverageMatrix {
       }
     }
   }
+
+  /// Convert coverage matrix into JSON format.  Return a dictionary that
+  /// stores the title, data and legend of the table.
+  dynamic toJson(String title, f(int e)) {
+    List<List<String>> data = <List<String>>[];
+    List<String> firstRow = <String>[];
+    firstRow.add('app key \\ device key');
+    firstRow.addAll(groupInfo.deviceClustersOrder);
+    data.add(firstRow);
+    int startIndx = beginOfDiff(groupInfo.deviceSpecClustersOrder);
+    for (int i = 0; i < matrix.length; i++) {
+      List<String> row = <String>[];
+      row.add(
+        groupInfo.deviceSpecClustersOrder[i].substring(startIndx)
+      );
+      row.addAll(matrix[i].map(f));
+      data.add(row);
+    }
+    CoverageScore coverageScore = computeCoverageScore(this);
+    return {
+      'title': title,
+      'data': data,
+      'legend': legend,
+      'reachable-score': coverageScore.reachablePathsPercentage,
+      'covered-score': coverageScore.coverageScore
+    };
+  }
+}
+
+class CoverageScore {
+  NumberFormat _scoreFormat;
+  final double _reachablePathsPercentage;
+  final double _coverageScore;
+
+  String get reachablePathsPercentage
+    => _scoreFormat.format(_reachablePathsPercentage);
+
+  String get coverageScore
+    => _scoreFormat.format(_coverageScore);
+
+  CoverageScore(this._reachablePathsPercentage, this._coverageScore) {
+    this._scoreFormat = new NumberFormat('%##.0#', 'en_US');
+  }
 }
 
 int _countNumberInCoverageMatrix(List<List<int>> matrix, bool test(int e)) {
@@ -103,13 +146,13 @@ int _countNumberInCoverageMatrix(List<List<int>> matrix, bool test(int e)) {
   return result;
 }
 
-/// Compute and print the app-device coverage.
-void computeAndReportCoverage(CoverageMatrix coverageMatrix) {
+/// Compute the percentage of reachable app-device paths and app-device
+/// coverage score.  Return null if coverage matrix is null.
+CoverageScore computeCoverageScore(CoverageMatrix coverageMatrix) {
   if (coverageMatrix == null) {
     printError('Coverage matrix is null');
-    return;
+    return null;
   }
-
   List<List<int>> matrix = coverageMatrix.matrix;
   int rowNum = matrix.length;
   int colNum = matrix[0].length;
@@ -118,39 +161,39 @@ void computeAndReportCoverage(CoverageMatrix coverageMatrix) {
     = _countNumberInCoverageMatrix(matrix, (int e) => e != cannotBeCovered);
   int coveredCombinationNum
     = _countNumberInCoverageMatrix(matrix, (int e) => e > isNotCovered);
-  StringBuffer scoreReport = new StringBuffer();
-  NumberFormat percentFormat = new NumberFormat('%##.0#', 'en_US');
-  scoreReport.writeln('App-Device Path Coverage (ADPC) score:');
   double reachableCoverageScore = reachableCombinationNum / totalPathNum;
-  scoreReport.writeln(
-    'Reachable ADPC score: ${percentFormat.format(reachableCoverageScore)}, '
-    'defined by #reachable / #total.'
-  );
   double coveredCoverageScore
     = coveredCombinationNum / reachableCombinationNum;
-  scoreReport.writeln(
-    'Covered ADPC score: ${percentFormat.format(coveredCoverageScore)}, '
-    'defined by #covered / #reachable.'
-  );
-  print(scoreReport.toString());
+  return new CoverageScore(reachableCoverageScore, coveredCoverageScore);
 }
 
+/// Print the coverage score
+void printCoverageScore(CoverageScore coverageScore) {
+  if (coverageScore == null) {
+    printError('Coverage score is null');
+    return;
+  }
+  print(
+    'App-Device Path Coverage (ADPC) score:\n'
+    'Reachable ADPC score: ${coverageScore.reachablePathsPercentage}, '
+    'defined by #reachable / #total.\n'
+    'Covered ADPC score: ${coverageScore.coverageScore}, '
+    'defined by #covered / #reachable.\n'
+  );
+}
+
+const String legend =
+'Meaning of the number in the coverage matrix:\n'
+'$cannotBeCovered: an app-device path is not reachable '
+'given the connected devices.\n'
+' $isNotCovered: an app-device path is reachable but '
+'not covered by any test run.\n'
+'>$isNotCovered: the number of times an app-device path '
+'is covered by some test runs.\n'
+;
+
 void printLegend() {
-  StringBuffer legendInfo = new StringBuffer();
-  legendInfo.writeln('Meaning of the number in the coverage matrix:');
-  legendInfo.writeln(
-    '$cannotBeCovered: an app-device path is not reachable '
-    'given the connected devices.'
-  );
-  legendInfo.writeln(
-    ' $isNotCovered: an app-device path is reachable but '
-    'not covered by any test run.'
-  );
-  legendInfo.writeln(
-    '>$isNotCovered: the number of times an app-device path '
-    'is covered by some test runs.'
-  );
-  print(legendInfo.toString());
+  print(legend);
 }
 
 void printCoverageMatrix(String title, CoverageMatrix coverageMatrix) {
@@ -179,7 +222,9 @@ void printHitmap(String title, CoverageMatrix coverageMatrix) {
     }
   );
   printLegend();
-  computeAndReportCoverage(coverageMatrix);
+  printCoverageScore(
+    computeCoverageScore(coverageMatrix)
+  );
 }
 
 void printMatrix(String title, CoverageMatrix coverageMatrix, f(int e)) {

@@ -4,6 +4,7 @@
 
 import 'dart:io';
 import 'dart:math';
+import 'dart:convert';
 
 import 'package:path/path.dart' as path;
 import 'package:glob/glob.dart';
@@ -42,6 +43,21 @@ class OperatingSystemUtil {
 const String doubleLineSeparator = '====================';
 // '-' * 20
 const String singleLineSeparator = '--------------------';
+
+int sum(Iterable<num> nums) {
+  if (nums.isEmpty) {
+    return 0;
+  }
+  return nums.reduce((num x, num y) => x + y);
+}
+
+String directoryName(String filePath) {
+  return path.dirname(filePath);
+}
+
+String fileBaseName(String filePath) {
+  return path.basename(filePath);
+}
 
 int minLength(List<String> elements) {
   if (elements == null || elements.isEmpty) return -1;
@@ -109,12 +125,21 @@ File getUniqueFile(Directory dir, String baseName, String ext) {
 }
 
 /// Create a file if it does not exist.  If the path points to a file, delete
-/// it and create a new file.  Otherwise, report
+/// it and create a new file.  Otherwise, report error
 File createNewFile(String path) {
   File file = new File('$path');;
   if(file.existsSync())
     file.deleteSync();
   return file..createSync(recursive: true);
+}
+
+/// Create a directory if it does not exist.  If the path points to a directory,
+/// delete it and create a new directory.  Otherwise, report error
+Directory createNewDirectory(String path) {
+  Directory directory = new Directory('$path');;
+  if(directory.existsSync())
+    directory.deleteSync(recursive: true);
+  return directory..createSync(recursive: true);
 }
 
 /// Return the absolute paths of a list of files based on a list of glob
@@ -153,4 +178,13 @@ List<String> mergeWithoutDuplicate(
   List<String> result = new List.from(first);
   result.addAll(second.where((String e) => !first.contains(e)));
   return result;
+}
+
+String dumpToJSONString(dynamic jsonObject) {
+  JsonEncoder encoder = const JsonEncoder.withIndent('  ');
+  return encoder.convert(jsonObject);
+}
+
+void copyPathToDirectory(String fPath, String dirPath) {
+  Process.runSync('cp', ['-r', fPath, dirPath]);
 }

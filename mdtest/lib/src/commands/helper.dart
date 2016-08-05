@@ -88,12 +88,15 @@ class MDTestRunner {
   }
 
   /// Run all tests with test output in TAP format
-  Future<int> runAllTestsToTAP(Iterable<String> testPaths) async {
+  Future<int> runAllTestsToTAP(
+    Iterable<String> testPaths,
+    TAPReporter reporter
+  ) async {
+    int diffFrom = beginOfDiff(testPaths);
     int result = 0;
-    TAPReporter reporter = new TAPReporter();
     reporter.printHeader();
     for (String testPath in testPaths) {
-      result += await runTestToTAP(testPath, reporter);
+      result += await runTestToTAP(testPath, diffFrom, reporter);
     }
     reporter.printSummary();
     return result == 0 ? 0 : 1;
@@ -125,12 +128,17 @@ class MDTestRunner {
   /// run the test script and convert json output into tap output on the fly.
   /// After test result is returned (either pass or fail), return the current
   /// process exit code (0 if success, otherwise failure)
-  Future<int> runTestToTAP(String testPath, TAPReporter reporter) async {
+  Future<int> runTestToTAP(
+    String testPath,
+    int diffFrom,
+    TAPReporter reporter
+  ) async {
     Process process = await Process.start(
       'pub',
       ['run', 'test', '--reporter', 'json', '$testPath']
     );
     bool hasTestOutput = await reporter.report(
+      testPath.substring(diffFrom),
       process.stdout
              .transform(new Utf8Decoder())
              .transform(new LineSplitter())
@@ -206,7 +214,7 @@ Future<int> computeAppsCoverage(
     File codeCoverageReport = getUniqueFile(
       new Directory(codeCoverageDirPath),
       'cov_$commandName',
-      'info'
+      'lcov'
     );
     try {
       // Write coverage info to code_coverage folder

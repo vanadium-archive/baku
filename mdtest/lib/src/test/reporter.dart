@@ -5,17 +5,37 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../mobile/device_spec.dart';
+import '../mobile/device.dart';
+import 'test_result.dart';
 import '../globals.dart';
+import '../util.dart';
 
 class TAPReporter {
   int currentTestNum;
   int passingTestsNum;
-  Map<int, TestEvent> testEventMapping;
+  Map<int, TestMethodResult> testMethodResultMapping;
+  Map<int, GroupResult> groupResultMapping;
+  List<TestSuiteResult> suites;
+  StringBuffer roundHighlight;
 
-  TAPReporter() {
+  TAPReporter(Map<DeviceSpec, Device> deviceMapping) {
     this.currentTestNum = 0;
     this.passingTestsNum = 0;
-    this.testEventMapping = <int, TestEvent>{};
+    this.testMethodResultMapping = <int, TestMethodResult>{};
+    this.groupResultMapping = <int, GroupResult>{};
+    this.suites = <TestSuiteResult>[];
+    roundHighlight = new StringBuffer();
+    int diffFrom = beginOfDiff(
+      deviceMapping.keys.map((DeviceSpec spec) => spec.groupKey()).toList()
+    );
+    deviceMapping.forEach((DeviceSpec spec, Device device) {
+      roundHighlight.writeln(
+        '<Spec Group Key: ${spec.groupKey().substring(diffFrom)}>'
+        ' -> '
+        '<Device Group Key: ${device.groupKey()}> (${spec.nickName})'
+      );
+    });
   }
 
   void printHeader() {
@@ -25,13 +45,15 @@ class TAPReporter {
     );
   }
 
-  Future<bool> report(Stream jsonOutput) async {
+  Future<bool> report(String testScriptPath, Stream jsonOutput) async {
+    testMethodResultMapping.clear();
+    groupResultMapping.clear();
+    suites.add(new TestSuiteResult(testScriptPath));
     bool hasTestOutput = false;
     await for (var line in jsonOutput) {
       convertToTAPFormat(line.toString().trim());
       hasTestOutput = true;
     }
-    testEventMapping.clear();
     return hasTestOutput;
   }
 
@@ -55,32 +77,63 @@ class TAPReporter {
       return;
     }
 
+    TestSuiteResult lastSuite = suites.last;
+
     if (_isGroupEvent(event) && !_isGroupRootEvent(event)) {
       dynamic groupInfo = event['group'];
+      String name = groupInfo['name'];
       bool skip = groupInfo['metadata']['skip'];
+      String skipReason = groupInfo['metadata']['skipReason'] ?? '';
       if (skip) {
-        String skipReason = groupInfo['metadata']['skipReason'] ?? '';
         print('# skip ${groupInfo['name']} $skipReason');
+      } else {
+        print('# ${groupInfo['name']}');
       }
-      print('# ${groupInfo['name']}');
+      int groupID = groupInfo['id'];
+      GroupResult groupEvent = new GroupResult(name, skip, skipReason);
+      groupResultMapping[groupID] = groupEvent;
+      lastSuite.addEvent(groupEvent);
     } else if (_isTestStartEvent(event)) {
       dynamic testInfo = event['test'];
       int testID = testInfo['id'];
       String name = testInfo['name'];
+      List<int> groupIDs = testInfo['groupIDs'];
+      int directParentGroupID;
+      // Associate the test event to its parent group event if any
+      if (groupIDs.isNotEmpty) {
+        directParentGroupID = groupIDs.last;
+        // Remove group name prefix if any
+        GroupResult directParentGroup = groupResultMapping[directParentGroupID];
+        String groupName = directParentGroup.name;
+        if (name.startsWith(groupName)) {
+          name = name.substring(groupName.length).trim();
+        }
+      }
       bool skip = testInfo['metadata']['skip'];
       String skipReason = testInfo['metadata']['skipReason'] ?? '';
-      testEventMapping[testID] = new TestEvent(name, skip, skipReason);
+      testMethodResultMapping[testID]
+        = new TestMethodResult(name, directParentGroupID, skip, skipReason);
     } else if (_isErrorEvent(event)) {
       int testID = event['testID'];
-      TestEvent testEvent = testEventMapping[testID];
+      TestMethodResult testEvent = testMethodResultMapping[testID];
       String errorReason = event['error'];
       testEvent.fillError(errorReason);
     } else if (_isTestDoneEvent(event)) {
       int testID = event['testID'];
-      TestEvent testEvent = testEventMapping[testID];
+      TestMethodResult testEvent = testMethodResultMapping[testID];
       testEvent.hidden = event['hidden'];
       testEvent.result = event['result'];
       printTestResult(testEvent);
+      if (testEvent.hidden) {
+        return;
+      }
+      int directParentGroupID = testEvent.directParentGroupID;
+      if (!groupResultMapping.containsKey(directParentGroupID)) {
+        lastSuite.addEvent(testEvent);
+      } else {
+        GroupResult groupEvent = groupResultMapping[directParentGroupID];
+        groupEvent.addTestEvent(testEvent);
+      }
     }
   }
 
@@ -109,7 +162,7 @@ class TAPReporter {
     return event['type'] == 'testDone';
   }
 
-  void printTestResult(TestEvent event) {
+  void printTestResult(TestMethodResult event) {
     if (event.hidden)
       return;
     if (event.result != 'success') {
@@ -131,29 +184,29 @@ class TAPReporter {
     print('ok ${++currentTestNum} - ${event.name}');
     passingTestsNum++;
   }
-}
 
-class TestEvent {
-  // Known at TestStartEvent
-  String name;
-  bool skip;
-  String skipReason;
-  // Known at ErrorEvent
-  bool error;
-  String errorReason;
-  // Known at TestDoneEvents
-  String result;
-  bool hidden;
-
-  TestEvent(String name, bool skip, String skipReason) {
-    this.name = name;
-    this.skip = skip;
-    this.skipReason = skipReason;
-    this.error = false;
+  int skipNum() {
+    return sum(suites.map((TestSuiteResult e) => e.skipNum()));
   }
 
-  void fillError(String errorReason) {
-    this.error = true;
-    this.errorReason = errorReason;
+  int failNum() {
+    return sum(suites.map((TestSuiteResult e) => e.failNum()));
+  }
+
+  int passNum() {
+    return sum(suites.map((TestSuiteResult e) => e.passNum()));
+  }
+
+  dynamic toJson() {
+    int failures = failNum();
+    return {
+      'type': 'test-round',
+      'highlight': roundHighlight.toString(),
+      'skip-num': skipNum(),
+      'fail-num': failures,
+      'pass-num': passNum(),
+      'status': failures > 0 ? 'fail' : 'pass',
+      'suites-info': suites.map((TestSuiteResult suite) => suite.toJson()).toList()
+    };
   }
 }

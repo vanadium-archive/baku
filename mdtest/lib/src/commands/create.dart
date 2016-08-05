@@ -156,7 +156,7 @@ class CreateCommand extends MDTestCommand {
   final String name = 'create';
 
   @override
-  final String description = 'create a test spec/script template for the user to fill in';
+  final String description = 'Create a test spec/script template for the user to fill in';
 
   @override
   Future<int> runCore() async {
@@ -169,18 +169,20 @@ class CreateCommand extends MDTestCommand {
     }
 
     if (specTemplatePath != null) {
+      specTemplatePath
+        = normalizePath(Directory.current.path, specTemplatePath);
       File file = createNewFile('$specTemplatePath');
       file.writeAsStringSync(specTemplate);
-      String absolutePath = normalizePath(Directory.current.path, specTemplatePath);
-      printInfo('Template test spec written to $absolutePath');
+      printInfo('Template test spec written to $specTemplatePath');
       printGuide(specGuide);
     }
 
     if (testTemplatePath != null) {
+      testTemplatePath
+        = normalizePath(Directory.current.path, testTemplatePath);
       File file = createNewFile('$testTemplatePath');
       file.writeAsStringSync(testTemplate);
-      String absolutePath = normalizePath(Directory.current.path, testTemplatePath);
-      printInfo('Template test written to $absolutePath');
+      printInfo('Template test written to $testTemplatePath');
       printGuide(testGuide);
     }
     return 0;

@@ -84,13 +84,14 @@ class DeviceSpec implements GroupKeyProvider {
                        'app path: $appPath>';
 }
 
-Future<dynamic> loadSpecs(ArgResults argResults) async {
+dynamic loadSpecs(ArgResults argResults) {
   String specsPath = argResults['spec'];
   try {
-    // Read specs file into json format
-    dynamic newSpecs = JSON.decode(await new File(specsPath).readAsString());
+    File specsFile = new File(specsPath);
+    // Read specs file into json object
+    dynamic newSpecs = JSON.decode(specsFile.readAsStringSync());
     // Get the parent directory of the specs file
-    String rootPath = new File(specsPath).parent.absolute.path;
+    String rootPath = specsFile.parent.absolute.path;
     // Normalize the 'test-path' specified from the command line argument
     List<String> testPathsFromCommandLine
       = listFilePathsFromGlobPatterns(Directory.current.path, argResults.rest);

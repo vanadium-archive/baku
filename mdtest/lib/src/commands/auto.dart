@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'helper.dart';
 import '../mobile/device.dart';
@@ -11,8 +12,10 @@ import '../mobile/key_provider.dart';
 import '../algorithms/coverage.dart';
 import '../algorithms/matching.dart';
 import '../globals.dart';
+import '../util.dart';
 import '../runner/mdtest_command.dart';
 import '../test/coverage_collector.dart';
+import '../test/reporter.dart';
 
 class AutoCommand extends MDTestCommand {
   @override
@@ -31,7 +34,7 @@ class AutoCommand extends MDTestCommand {
   Future<int> runCore() async {
     printInfo('Running "mdtest auto command" ...');
 
-    this._specs = await loadSpecs(argResults);
+    this._specs = loadSpecs(argResults);
     if (sanityCheckSpecs(_specs, argResults['spec']) != 0) {
       printError('Test spec does not meet requirements.');
       return 1;
@@ -69,6 +72,8 @@ class AutoCommand extends MDTestCommand {
     Map<String, CoverageCollector> collectorPool
       = <String, CoverageCollector>{};
 
+    List<TAPReporter> allTAPReporters = <dynamic>[];
+
     List<int> errRounds = [];
     List<int> failRounds = [];
     int roundNum = 0;
@@ -89,7 +94,10 @@ class AutoCommand extends MDTestCommand {
 
       bool testsFailed;
       if (argResults['format'] == 'tap') {
-        testsFailed = await runner.runAllTestsToTAP(_specs['test-paths']) != 0;
+        TAPReporter reporter = new TAPReporter(deviceMapping);
+        testsFailed
+          = await runner.runAllTestsToTAP(_specs['test-paths'], reporter) != 0;
+        allTAPReporters.add(reporter);
       } else {
         testsFailed = await runner.runAllTests(_specs['test-paths']) != 0;
       }
@@ -114,9 +122,10 @@ class AutoCommand extends MDTestCommand {
       printInfo('End of Round #$roundNum\n');
     }
 
+    String hitmapTitle = 'App-device coverage hit matrix:';
     if (!briefMode) {
       printHitmap(
-        'App-device coverage hit matrix:',
+        hitmapTitle,
         appDeviceCoverageMatrix
       );
     }
@@ -132,6 +141,27 @@ class AutoCommand extends MDTestCommand {
       printInfo('All tests in all rounds passed');
     }
 
+    String reportDataPath = argResults['save-report-data'];
+    if (reportDataPath != null) {
+      reportDataPath
+        = normalizePath(Directory.current.path, reportDataPath);
+      File file = createNewFile(reportDataPath);
+      printInfo('Writing report data to $reportDataPath');
+      file.writeAsStringSync(
+        dumpToJSONString(
+          {
+            'hitmap': appDeviceCoverageMatrix.toJson(
+              hitmapTitle,
+              (int e) => '$e'
+            ),
+            'rounds-info': allTAPReporters.map(
+              (TAPReporter reporter) => reporter.toJson()
+            ).toList()
+          }
+        )
+      );
+    }
+
     if (argResults['coverage']) {
       printInfo('Computing code coverage for each application ...');
       if (await computeAppsCoverage(collectorPool, name) != 0)
@@ -145,6 +175,7 @@ class AutoCommand extends MDTestCommand {
     usesSpecsOption();
     usesCoverageFlag();
     usesTAPReportOption();
+    usesSaveTestReportOption();
     argParser.addOption('groupby',
       defaultsTo: 'device-id',
       allowed: [
@@ -154,8 +185,9 @@ class AutoCommand extends MDTestCommand {
         'os-version',
         'screen-size'
       ],
-      help: 'Device property used to group devices to'
-            'adjust app-device coverage criterion.'
+      help: 'Device property used to group devices that applications will run '
+            'on.  Each application is guaranteed to be run on at least one '
+            'device from each of all device groups that satisfy the test spec.'
     );
   }
 }
