@@ -80,6 +80,9 @@ class DoctorCommand extends MDTestCommand {
       );
       return 1;
     }
+    printInfo(
+      'All required tools are installed correctly.  mdtest is ready to go.'
+    );
     return 0;
   }
 }
