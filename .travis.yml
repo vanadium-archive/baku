@@ -1,0 +1,10 @@
+language: dart
+dist: trusty
+sudo: required
+os:
+  - linux
+  - osx
+
+script:
+  - make
+  - make test
