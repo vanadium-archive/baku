@@ -8,7 +8,7 @@ import 'dart:io';
 import 'report.dart';
 import '../globals.dart';
 import '../util.dart';
-import '../../assets/locator.dart';
+import '../report/locator.dart';
 
 class TestReport extends Report {
   HitmapInfo hitmapInfo;

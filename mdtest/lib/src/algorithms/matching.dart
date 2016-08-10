@@ -14,7 +14,8 @@ import '../globals.dart';
 /// Find all matched devices for each device spec
 Map<DeviceSpec, Set<Device>> findIndividualMatches(
   List<DeviceSpec> deviceSpecs,
-  List<Device> devices) {
+  List<Device> devices
+) {
   Map<DeviceSpec, Set<Device>> individualMatches
     = new Map<DeviceSpec, Set<Device>>();
   for(DeviceSpec deviceSpecs in deviceSpecs) {
@@ -31,7 +32,8 @@ Map<DeviceSpec, Set<Device>> findIndividualMatches(
 /// Return the first device spec to device matching, null if no such matching
 Map<DeviceSpec, Device> findMatchingDeviceMapping(
   List<DeviceSpec> deviceSpecs,
-  Map<DeviceSpec, Set<Device>> individualMatches) {
+  Map<DeviceSpec, Set<Device>> individualMatches
+) {
   Map<DeviceSpec, Device> deviceMapping = <DeviceSpec, Device>{};
   Set<Device> visited = new Set<Device>();
   if (!_findMatchingDeviceMapping(0, deviceSpecs, individualMatches,
