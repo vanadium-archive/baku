@@ -1,0 +1,14 @@
+name: chat
+description: A new flutter project.
+dependencies:
+  flutter:
+    path: ../../../deps/flutter/packages/flutter
+  flutter_test:
+    path: ../../../deps/flutter/packages/flutter_test
+  flutter_driver:
+    path: ../../../deps/flutter/packages/flutter_driver
+  mdtest_api:
+    path: ../../dart-packages/mdtest_api
+
+dev_dependencies:
+  test: 0.12.15+1

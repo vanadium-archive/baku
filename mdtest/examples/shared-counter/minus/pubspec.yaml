@@ -1,0 +1,9 @@
+name: minus
+description: A minus counter flutter project.
+dependencies:
+  flutter:
+    path: ../../../../deps/flutter/packages/flutter
+  flutter_test:
+    path: ../../../../deps/flutter/packages/flutter_test
+  flutter_driver:
+    path: ../../../../deps/flutter/packages/flutter_driver

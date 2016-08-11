@@ -20,11 +20,12 @@ function follow_links() {
 
 PROG_NAME="$(follow_links "$BASH_SOURCE")"
 BIN_DIR="$(cd "${PROG_NAME%/*}" ; pwd -P)"
-export MDTEST_TOOL="$(cd "${BIN_DIR}/.." ; pwd -P)"
+export MDTEST_ROOT="$(cd "${BIN_DIR}/.." ; pwd -P)"
 
-SNAPSHOT_PATH="$MDTEST_TOOL/bin/cache/mdtest.snapshot"
-STAMP_PATH="$MDTEST_TOOL/bin/cache/mdtest.stamp"
-SCRIPT_PATH="$MDTEST_TOOL/bin/mdtest.dart"
+MDTEST_TOOLS_DIR="$MDTEST_ROOT/dart-packages/mdtest_tools"
+SNAPSHOT_PATH="$MDTEST_ROOT/bin/cache/mdtest.snapshot"
+STAMP_PATH="$MDTEST_ROOT/bin/cache/mdtest.stamp"
+SCRIPT_PATH="$MDTEST_TOOLS_DIR/bin/mdtest.dart"
 DART="$(which dart)"
 PUB="$(which pub)"
 
@@ -38,19 +39,19 @@ if [ "$PUB" = "pub not found" ]; then
   exit 0
 fi
 
-mkdir -p "$MDTEST_TOOL/bin/cache"
+mkdir -p "$MDTEST_ROOT/bin/cache"
 
-REVISION=`(cd "$MDTEST_TOOL"; git rev-parse HEAD)`
-if [ ! -f "$SNAPSHOT_PATH" ] || [ ! -f "$STAMP_PATH" ] || [ `cat "$STAMP_PATH"` != "$REVISION" ] || [ "$MDTEST_TOOL/pubspec.yaml" -nt "$MDTEST_TOOL/pubspec.lock" ]; then
+REVISION=`(cd "$MDTEST_ROOT"; git rev-parse HEAD)`
+if [ ! -f "$SNAPSHOT_PATH" ] || [ ! -f "$STAMP_PATH" ] || [ `cat "$STAMP_PATH"` != "$REVISION" ] || [ "$MDTEST_TOOLS_DIR/pubspec.yaml" -nt "$MDTEST_TOOLS_DIR/pubspec.lock" ]; then
   echo Building mdtest ...
-  (cd "$MDTEST_TOOL"; "$PUB" get --verbosity=warning)
-  "$DART" --snapshot="$SNAPSHOT_PATH" --packages="$MDTEST_TOOL/.packages" "$SCRIPT_PATH"
+  (cd "$MDTEST_TOOLS_DIR"; "$PUB" get --verbosity=warning)
+  "$DART" --snapshot="$SNAPSHOT_PATH" --packages="$MDTEST_TOOLS_DIR/.packages" "$SCRIPT_PATH"
   echo $REVISION > "$STAMP_PATH"
   echo Build Success
 fi
 
 if [ $MDTEST_DEV ]; then
-  "$DART" --packages="$MDTEST_TOOL/.packages" -c "$SCRIPT_PATH" "$@"
+  "$DART" --packages="$MDTEST_TOOLS_DIR/.packages" -c "$SCRIPT_PATH" "$@"
 else
   set +e
   "$DART" "$SNAPSHOT_PATH" "$@"
@@ -61,6 +62,6 @@ else
   fi
 
   set -e
-  "$DART" --snapshot="$SNAPSHOT_PATH" --package="$MDTEST_TOOL/.package" "$SCRIPT_PATH"
+  "$DART" --snapshot="$SNAPSHOT_PATH" --package="$MDTEST_TOOLS_DIR/.package" "$SCRIPT_PATH"
   "$DART" "$SNAPSHOT_PATH" "$@"
 fi

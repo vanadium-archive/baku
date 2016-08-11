@@ -1,0 +1,6 @@
+name: mdtest_api
+description: mdtest API that helps write test scripts for multi-device applications
+
+dependencies:
+  flutter_driver:
+    path: ../../../deps/flutter/packages/flutter_driver

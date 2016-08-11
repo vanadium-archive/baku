@@ -1,0 +1,12 @@
+name: shared_counter_test
+description: shared-counter flutter driver tests.
+dependencies:
+  flutter:
+    path: ../../../../deps/flutter/packages/flutter
+  flutter_test:
+    path: ../../../../deps/flutter/packages/flutter_test
+  mdtest_api:
+    path: ../../../dart-packages/mdtest_api
+
+dev_dependencies:
+  test: 0.12.15+1
