@@ -1,10 +1,10 @@
 # mdtest: Multi-Device Applicatoin Testing Framework
 
-`mdtest` is a command line tool built on top of [flutter](https://flutter.io/)
-for integration testing.  The tool wraps several flutter commands and implements
+`mdtest` is a command line tool built on top of [Flutter](https://flutter.io/)
+for integration testing.  The tool wraps several Flutter commands and implements
 algorithms to deliver a robust end to end testing experience for multi-device
-applications.  `mdtest` targets at multi-device flutter apps and provides a
-public API that wraps flutter driver API and allows testers to write portable
+applications.  `mdtest` targets at multi-device Flutter apps and provides a
+public API that wraps Flutter driver API and allows testers to write portable
 test scripts across platforms.
 
 # Requirements:
@@ -15,12 +15,13 @@ test scripts across platforms.
 
 * Tools
   - [Dart](https://www.dartlang.org/): must be installed and accessible from
-   `PATH`
+   `PATH`.
   - PUB: comes with Dart and must be accessible from `PATH`.
-  - [Flutter](https://flutter.io/): must be installed and accessible from `PATH`.
-   `flutter doctor` should report no error
+  - [Flutter](https://flutter.io/): must be installed and accessible from
+   `PATH`.  `flutter doctor` should report no error.  Please refer to the
+   [next section](#installing-mdtest) for installation.
   - [ADB](http://developer.android.com/tools/help/adb.html): must be installed
-   and accessible from `PATH`
+   and accessible from `PATH`.
   - LCOV: `sudo apt-get install lcov` on Linux, `brew install lcov` on Mac OS.
     Must be installed and accessible from `PATH`.
   - [Homebrew](http://brew.sh/): must be installed on Mac OS and accessible from
@@ -30,38 +31,46 @@ test scripts across platforms.
 
 # Installing mdtest
 
-## Clone from Github
+## Clone baku repo
 
 To get `mdtest`, use `git` to clone the [baku](https://github.com/vanadium/baku)
 repository and then add the `mdtest` tool to `PATH`
 
 ```
 $ git clone git@github.com:vanadium/baku.git
-$ export PATH="$(pwd)/mdtest/bin:$PATH"
+$ cd baku
+baku$ export PATH="$(pwd)/mdtest/bin:$PATH"
 ```
-Open mdtest/pubspec.yaml file and make the following change:
 
-replace
- ```
- dlog:
-   path: ../../../../third_party/dart/dlog
- ```
-with
- ```
- dlog: 0.0.5
- ```
-replace
- ```
- flutter_driver:
-   path: ../deps/flutter/packages/flutter_driver
- ```
-with
- ```
- flutter_driver:
-   path: ${path/to/flutter}/packages/flutter_driver
- ```
+## Install Flutter
 
-The first time you run the `mdtest` command, it will build the tool ifself.  If
+Run `make` under the baku directory and it will `git clone` Flutter repo under
+deps folder.  Add `flutter` to `PATH` by
+
+```
+baku$ make
+baku$ export PATH="$(pwd)/deps/flutter/bin:$PATH"
+```
+
+`mdtest` will depends on the Flutter tool under deps folder by default.  To use
+Flutter under another location, you need to add it into `PATH` and change the
+pubspec.yaml under mdtest/dart-packages/mdtest_api folder.
+
+Replace
+
+```
+flutter_driver:
+  path: ../../../deps/flutter/packages/flutter_driver
+```
+
+with
+
+```
+flutter_driver:
+  path: ${path/to/flutter}/packages/flutter_driver
+```
+
+The first time you run the `mdtest` command, it will build the tool itself.  If
 you see Build Success, then `mdtest` is ready to go.  You can run `mdtest
 doctor` to check if all dependent tools are installed before you run any test
 script.
@@ -76,14 +85,14 @@ The test spec file is required to run `mdtest`.  In a nut shell, the test spec
 is the way to tell `mdtest` what kind of devices you want your applications to
 run on.  The spec file gives you the flexibility to choose your app device
 either uniquely by specifying the device id, or roughly by specifying some
-properties of the devices.  The device nickname refers to a flutter driver
+properties of the devices.  The device nickname refers to a Flutter driver
 instance that will be used to automate the application and device that satisfiy
-the test spec.  You can use the nickname to create a flutter driver instance in
+the test spec.  You can use the nickname to create a Flutter driver instance in
 your test script.  The ability to roughly specify device requirements and refer
 a driver instance by its nickname makes your test script portable to any
 platform anywhere in the world, as long as sufficient available devices are
 detected by `mdtest`.  The test scripts specified in the test spec should
-contain flutter driver tests for integration testing.
+contain Flutter driver tests for integration testing.
 
 `mdtest` uses a test spec to find devices that each application can run on based
 on the given device properties and initiate the test runs.  The test spec is in
@@ -137,16 +146,16 @@ device specs inside "devices" attribute.  Each device spec has a unique
    overlapping screen ranges resolved.
 
  * `app-root` (required): The "app-root" attribute specifies the path to the
-   flutter app which you want to run on the device.  The path should point to
+   Flutter app which you want to run on the device.  The path should point to
    the app root directory.  If a relative path is used, it must be relative to
    the directory that contains the test spec file.
 
  * `app-path` (required): The "app-path" attribute points to the instrumented
-   flutter app that uses flutter driver plugin.  The path should point to a dart
+   Flutter app that uses Flutter driver plugin.  The path should point to a dart
    file that contains an instrumented main function which invokes the actual app
    main function.  If a relative path is used, it must be relative to the path
    in the `app-root`. For more information, please refer to
-   [flutter integration testing](https://flutter.io/testing/#integration-testing).
+   [Flutter integration testing](https://flutter.io/testing/#integration-testing).
 
 You can add arbitraty number of device specs by repeatedly adding attributes
 following the rules above.  `mdtest create` can be used to create a test spec
@@ -255,7 +264,7 @@ be stored under the given output directory users specify.
     generate HTML report.  If you want to generate a coverage report, you must
     provide a coverage data file in LCOV format.  If you want to generate a test
     report, you must provide a test data file in JSON format.  Must be set.
-  - `--lib` points to the path to the flutter application lib folder that your
+  - `--lib` points to the path to the Flutter application lib folder that your
     code coverage data refers to.  This option is only used if you want to
     generate a code coverage report.
   - `--output` points to the path of the directory where the HTML report will be
@@ -263,11 +272,11 @@ be stored under the given output directory users specify.
 
 ## Writing Tests
 
-`mdtest` provides a DriverMap class which maps every nickname to a flutter
-driver instance.  You can retrieve the corresponding flutter driver instance by
+`mdtest` provides a DriverMap class which maps every nickname to a Flutter
+driver instance.  You can retrieve the corresponding Flutter driver instance by
 providing the nickname, which is specified in the test spec.  DriverMap class
-will lazy initialize the flutter driver the first time you retrieve it.  Once
-you get the flutter driver instance, you can invoke any public methods that
+will lazy initialize the Flutter driver the first time you retrieve it.  Once
+you get the Flutter driver instance, you can invoke any public methods that
 the FlutterDriver class provides.  To use this wrapper, you should add the following
 import statement in your test scripts:
 
@@ -323,5 +332,11 @@ void main() {
 ```
 
 `mdtest create` can be used to create a sample test script for you.  The way to
-write integration tests for flutter apps follows
-[flutter integration testing](https://flutter.io/testing/#integration-testing).
+write integration tests for Flutter apps follows
+[Flutter integration testing](https://flutter.io/testing/#integration-testing).
+
+# Examples
+
+`mdtest` comes with a [shared counter example](examples/shared-counter) and a
+[chat example](examples/chat).  You can navigate to those examples and start
+running `mdtest`.
