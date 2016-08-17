@@ -111,7 +111,7 @@ public class SyncText {
         this.mOnTextChangeListener = onTextChangeListener;
     }
 
-    public int update(String newText) {
+    public int update(String newText, int ver) {
         if (mPatchesRef == null) {
             throw new RuntimeException("database connection hasn't been initialized");
         }
@@ -121,7 +121,7 @@ public class SyncText {
         if (patches.size() > 0) {
             String patchString = diffMatchPatch.patchToText(patches);
             SyncTextPatch patch = new SyncTextPatch();
-            patch.setVer(ver + 1);
+            patch.setVer(ver);
             patch.setPatch(patchString);
             if (mLocalSource != null) {
                 patch.setSource(mLocalSource);
@@ -131,6 +131,16 @@ public class SyncText {
             return patch.getVer();
         }
         return -1;
+    }
+
+    public int update(String newText) {
+        return update(newText, ver + 1);
+    }
+
+    private LinkedList<SyncTextDiff> toDiffs(String text) {
+        LinkedList<SyncTextDiff> diffs = new LinkedList<>();
+        diffs.add(new SyncTextDiff(text, SyncTextDiff.EQUAL, mLocalSource, mPermissions));
+        return diffs;
     }
 
     //TODO: this method currently waits for server confirmation to notify listeners. Ideally, it should notify immediately and revert on failure
@@ -184,38 +194,61 @@ public class SyncText {
         mSyncRef.child(KEY_SUBSCRIBERS).child(mInstanceId).setValue(0);
 
         mPatchesRef = mSyncRef.child(KEY_PATCHES);
-        mSyncRef.child(KEY_CURRENT).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    if (dataSnapshot.hasChild(KEY_DIFFS)) {
-                        diffs = new LinkedList<SyncTextDiff>(dataSnapshot.child(KEY_DIFFS).getValue(diffListType));
-                    }
-                    ver = dataSnapshot.child(KEY_VERSION).getValue(Integer.class);
-                } else {  //version 0, empty string
-                    updateCurrent(0, new LinkedList<>(diffs));
-                }
+        if (mOutputRef != null) {
+            mOutputRef.addListenerForSingleValueEvent(pullCurrentOutput);
+        } else {
+            mSyncRef.child(KEY_CURRENT).addListenerForSingleValueEvent(mInitValueListener);
+        }
+    }
 
-                notifyListeners(diffs, ver);
+    private ValueEventListener mInitValueListener = new ValueEventListener() {
+        @Override
+        public void onDataChange(DataSnapshot dataSnapshot) {
+            if (dataSnapshot.exists()) {
+                if (dataSnapshot.hasChild(KEY_DIFFS)) {
+                    diffs = new LinkedList<SyncTextDiff>(dataSnapshot.child(KEY_DIFFS).getValue(diffListType));
+                }
+                ver = dataSnapshot.child(KEY_VERSION).getValue(Integer.class);
+            } else {  //version 0, empty string
+                updateCurrent(0, new LinkedList<>(diffs));
+            }
+            notifyListeners(diffs, ver);
 
 //                mPatchesRef.orderByChild(KEY_VERSION).startAt(ver).addChildEventListener(mPatchListener);
-                mPatchesRef.addChildEventListener(mPatchListener);
-                mSyncRef.child(KEY_CURRENT).addValueEventListener(mCurrentValueListener);
-            }
+            mPatchesRef.addChildEventListener(mPatchListener);
+            mSyncRef.child(KEY_CURRENT).addValueEventListener(mCurrentValueListener);
+        }
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
+        @Override
+        public void onCancelled(DatabaseError databaseError) {
 
+        }
+    };
+
+    private ValueEventListener pullCurrentOutput = new ValueEventListener() {
+        @Override
+        public void onDataChange(DataSnapshot dataSnapshot) {
+            if (dataSnapshot.exists()) {
+                String atOutput = dataSnapshot.getValue(String.class);
+                if (atOutput != null) {
+                    diffs = toDiffs(atOutput);
+                }
             }
-        });
-    }
+            mSyncRef.child(KEY_CURRENT).addListenerForSingleValueEvent(mInitValueListener);
+        }
+
+        @Override
+        public void onCancelled(DatabaseError databaseError) {
+
+        }
+    };
 
     private ValueEventListener mCurrentValueListener = new ValueEventListener() {
         @Override
         public void onDataChange(DataSnapshot dataSnapshot) {
             if (dataSnapshot.exists()) {
                 int version = dataSnapshot.child(KEY_VERSION).getValue(Integer.class);
-                if (version > ver && dataSnapshot.hasChild(KEY_DIFFS)) {
+                if (dataSnapshot.hasChild(KEY_DIFFS)) {
                     ver = version;
                     diffs = new LinkedList<SyncTextDiff>(dataSnapshot.child(KEY_DIFFS).getValue(diffListType));
                     notifyListeners(diffs, ver);
@@ -309,7 +342,7 @@ public class SyncText {
     }
 
     //TODO: bug when duplicate letter patterns in the text. The diff algorithm doesn't take source into account.
-    //TODO: this method doesn't handle delete operations on diffs with different sources (e.g. deleting a suggestion from another source), these operations are currently ignored
+    //TODO: this method doesn't handle delete operations on diffs with different sources (e.g. deleting another sources suggestion), these operations are currently ignored
     void processPatch(SyncTextPatch patch) {
         int v = patch.getVer();
         if (this.ver >= v) {  //ignore patches for previous versions
@@ -345,17 +378,14 @@ public class SyncText {
             switch (operation) {
                 case SyncTextDiff.EQUAL:
                     length = value.length();
-                    while (previousDiff.length() < length) {
+                    while (previousDiff.length() <= length) {
                         result.add(previousDiff);
                         length -= previousDiff.length();
-                        previousDiff = previousIterator.next();
-                    }
-                    if (previousDiff.length() == length) {
-                        result.add(previousDiff);
                         if (previousIterator.hasNext()) {
                             previousDiff = previousIterator.next();
                         }
-                    } else {
+                    }
+                    if (length > 0) {
                         SyncTextDiff splitDiff = previousDiff.truncate(length);
                         result.add(previousDiff);
                         previousDiff = splitDiff;
@@ -380,7 +410,6 @@ public class SyncText {
                             result.add(previousDiff);
                         }
                         length -= previousDiff.length();
-
                         if (previousIterator.hasNext()) {
                             previousDiff = previousIterator.next();
                         }
@@ -429,20 +458,25 @@ public class SyncText {
 
     public void acceptSuggestions(String source) {
         LinkedList<SyncTextDiff> result = new LinkedList<>(diffs);
+        boolean change = false;
         for (Iterator<SyncTextDiff> iterator = result.iterator(); iterator.hasNext(); ) {
             SyncTextDiff diff = iterator.next();
             if (diff.source.equals(source)) {
                 switch (diff.operation) {
                     case SyncTextDiff.DELETE:
                         iterator.remove();
+                        change = true;
                         break;
-                    default:
+                    case SyncTextDiff.INSERT:
+                        change = true;
                         diff.operation = SyncTextDiff.EQUAL;
                         break;
                 }
             }
         }
-        updateCurrent(ver + 1, result);
+        if (change) {
+            updateCurrent(ver + 1, result);
+        }
     }
 
     public void rejectSuggestions() {

@@ -77,7 +77,7 @@ public class SyncTextDiff {
         return text == null ? 0 : text.length();
     }
 
-    public boolean compatible(SyncTextDiff other){
+    public boolean compatible(SyncTextDiff other) {
         return compatible(other.operation, other.source);
     }
 

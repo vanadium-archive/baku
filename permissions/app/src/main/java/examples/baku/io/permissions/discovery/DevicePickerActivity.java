@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import examples.baku.io.permissions.PermissionService;
@@ -22,7 +23,7 @@ import examples.baku.io.permissions.util.EventFragment;
 public class DevicePickerActivity extends AppCompatActivity implements EventFragment.EventFragmentListener, ServiceConnection {
 
     private PermissionService mPermissionService;
-    private Map<String, DeviceData> mDevices;
+    private Map<String, DeviceData> mDevices = new HashMap<>();
     private DevicePickerActivityFragment mFragment;
 
     private int requestCode;
@@ -85,7 +86,13 @@ public class DevicePickerActivity extends AppCompatActivity implements EventFrag
     @Override
     public void onServiceConnected(ComponentName name, IBinder service) {
         mPermissionService = ((PermissionService.PermissionServiceBinder)service).getInstance();
-        mDevices = mPermissionService.getDiscovered();
+
+        mDevices.clear();
+        for(Map.Entry<String, DeviceData> device : mPermissionService.getDiscovered().entrySet()){
+            if(device.getValue().isActive()){
+                mDevices.put(device.getKey(), device.getValue());
+            }
+        }
         if(mFragment != null){
             mFragment.setDevices(mDevices);
         }

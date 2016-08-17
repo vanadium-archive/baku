@@ -13,11 +13,16 @@
         android:orderInCategory="100"
         android:icon="@android:drawable/ic_delete"
         app:showAsAction="never" />
-
     <item
-        android:id="@+id/action_send"
-        android:title="Send Message"
+        android:id="@+id/action_attach"
+        android:title="Attach File"
         android:orderInCategory="100"
-        android:icon="@android:drawable/ic_menu_send"
-        app:showAsAction="always" />
+        android:icon="@android:drawable/ic_input_get"
+        app:showAsAction="always"/>
+    <!--<item-->
+        <!--android:id="@+id/action_send"-->
+        <!--android:title="Send Message"-->
+        <!--android:orderInCategory="100"-->
+        <!--android:icon="@android:drawable/ic_menu_send"-->
+        <!--app:showAsAction="always" />-->
 </menu>

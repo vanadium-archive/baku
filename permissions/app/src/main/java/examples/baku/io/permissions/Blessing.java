@@ -79,7 +79,7 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
 
     //root blessings have no source blessing and their id is the same as their target
     public static Blessing createRoot(PermissionManager permissionManager, String target) {
-        return create(permissionManager,target, null, target);
+        return create(permissionManager, target, null, target);
     }
 
     public static Blessing fromSnapshot(PermissionManager permissionManager, DataSnapshot snapshot) {
@@ -88,7 +88,7 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
         String source = null;
         if (snapshot.hasChild("source"))
             source = snapshot.child("source").getValue(String.class);
-        return create(permissionManager,id, source, target);
+        return create(permissionManager, id, source, target);
     }
 
     public OnBlessingUpdatedListener addListener(OnBlessingUpdatedListener listener) {
@@ -122,6 +122,10 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
             revoke();
         }
     };
+
+    public int getPermissions(String path) {
+        return permissionTree.getPermissions(path);
+    }
 
     public boolean isSynched() {
         return snapshot != null;
@@ -470,7 +474,7 @@ public class Blessing implements Iterable<Blessing.Permission>, ValueEventListen
         }
 
         public int getPermissions(String path) {
-            path = Utils.getNearestCommonAncestor(path,keySet());
+            path = Utils.getNearestCommonAncestor(path, keySet());
             Permission permission = get(path);
             if (permission == null) {
                 return 0;

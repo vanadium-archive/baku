@@ -8,8 +8,10 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.graphics.drawable.Icon;
 import android.os.Binder;
@@ -67,6 +69,8 @@ public class PermissionService extends Service {
     public static final String EXTRA_REQUEST_ID = "requestId";
     public static final String EXTRA_NOTIFICATION_ID = "notificationId";
     public static final String EXTRA_ACTION_ID = "notificationId";
+
+    public static final String ACTION_SHARE_EVENT = "examples.baku.io.permissions.ShareEvent";
 
     NotificationManager mNotificationManager;
 
@@ -192,6 +196,12 @@ public class PermissionService extends Service {
                         .setVibrate(new long[]{100})
                         .setPriority(Notification.PRIORITY_MAX)
                         .build();
+
+                Integer previousNotificationId = mRequestNotifications.get(request.getId());
+                if (previousNotificationId != null) {
+                    mNotificationManager.cancel(previousNotificationId);
+                }
+
                 mNotificationManager.notify(nId, notification);
                 mRequestNotifications.put(request.getId(), nId);
                 return true;
@@ -205,9 +215,12 @@ public class PermissionService extends Service {
             }
         });
 
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_SHARE_EVENT);
+        registerReceiver(eventReceiver, filter);
+
         mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         initForegroundNotification();
-
         registerDevice();
         initMessenger();
         initDiscovery();
@@ -215,24 +228,33 @@ public class PermissionService extends Service {
         mRunning = true;
     }
 
-    public void requestDialog(String requestId, String title, String subtitle, ActionCallback accept, ActionCallback reject) {
+    public void requestDialog(String requestId, String title, String subtitle, ActionCallback accept, ActionCallback reject, Intent content) {
         Integer previousNotificationId = mRequestNotifications.get(requestId);
         if (previousNotificationId != null) {
             mNotificationManager.cancel(previousNotificationId);
         }
-        Notification notification = new Notification.Builder(PermissionService.this)
+        String aId = UUID.randomUUID().toString();
+        String dId = UUID.randomUUID().toString();
+        Notification.Builder builder = new Notification.Builder(PermissionService.this)
                 .setSmallIcon(keyIcon)
                 .setContentTitle(title)
                 .setSubText(subtitle)
-                .addAction(createAction(grantIcon, "Accept", UUID.randomUUID().toString(), accept))
-                .setDeleteIntent(createNotificationCallback(UUID.randomUUID().toString(), reject))
+                .addAction(createAction(grantIcon, "Accept", aId, accept))
+                .setDeleteIntent(createNotificationCallback(dId, reject))
                 .setVibrate(new long[]{100})
-                .setPriority(Notification.PRIORITY_MAX)
-                .build();
+                .setPriority(Notification.PRIORITY_MAX);
+
+        if (content != null) {
+            builder.setContentIntent(PendingIntent.getActivity(this, mActionCounter++, content, PendingIntent.FLAG_CANCEL_CURRENT));
+        }
+
+        Notification notification = builder.build();
 
         int nId = mNotificationCounter++;
         mNotificationManager.notify(nId, notification);
         mRequestNotifications.put(requestId, nId);
+        mRequestNotifications.put(aId, nId);
+        mRequestNotifications.put(dId, nId);
     }
 
 
@@ -290,7 +312,8 @@ public class PermissionService extends Service {
             Intent emailIntent = new Intent(PermissionService.this, ComposeActivity.class);
             emailIntent.putExtra(ComposeActivity.EXTRA_MESSAGE_PATH, focusPath);
             emailIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            notificationBuilder.addAction(new Notification.Action.Builder(castIcon, "Pull Message", PendingIntent.getActivity(this, 0, emailIntent, PendingIntent.FLAG_CANCEL_CURRENT)).build());
+//            notificationBuilder.addAction(new Notification.Action.Builder(castIcon, "Pull Message", PendingIntent.getActivity(this, 0, emailIntent, PendingIntent.FLAG_CANCEL_CURRENT)).build());
+            notificationBuilder.setContentIntent(PendingIntent.getActivity(this, 0, emailIntent, PendingIntent.FLAG_CANCEL_CURRENT));
         }
 
         mConstellation.add(dId);
@@ -384,7 +407,7 @@ public class PermissionService extends Service {
         mMessenger.on("disassociate", new Messenger.Listener() {
             @Override
             public void call(Message msg, Messenger.Ack callback) {
-
+                removeFromConstellation(msg.getMessage());
             }
         });
 
@@ -416,8 +439,15 @@ public class PermissionService extends Service {
     }
 
     public void removeFromConstellation(String deviceId) {
+        Integer nId = mConstellationNotifications.remove(deviceId);
+        if (nId != null) {
+            mNotificationManager.cancel(nId);
+        }
+
+        if (!mConstellation.contains(deviceId)) {
+            return;
+        }
         mConstellation.remove(deviceId);
-        mConstellationNotifications.remove(deviceId);
         //revoke all blessings
         for (Blessing blessing : mPermissionManager.getReceivedBlessings()) {
             Blessing granted = blessing.getBlessing(deviceId);
@@ -425,7 +455,18 @@ public class PermissionService extends Service {
                 granted.revoke();
             }
         }
+        for (DiscoveryListener listener : mDiscoveryListener) {
+            listener.onDisassociate(deviceId);
+        }
+        mMessenger.to(deviceId).emit("disassociate", mDeviceId);
     }
+
+    private final BroadcastReceiver eventReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+        }
+    };
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -479,9 +520,9 @@ public class PermissionService extends Service {
                 String dId = intent.getStringExtra("deviceId");
                 if (dId != null) {
                     removeFromConstellation(dId);
-
-
                 }
+
+            } else if ("clipboardEvent".equals(type)) {
 
             } else if ("close".equals(type)) {
                 stopSelf();
@@ -588,6 +629,7 @@ public class PermissionService extends Service {
         if (mPermissionManager != null) {
             mPermissionManager.onDestroy();
         }
+        unregisterReceiver(eventReceiver);
         super.onDestroy();
     }
 

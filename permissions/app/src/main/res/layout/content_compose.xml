@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
@@ -13,39 +14,67 @@
     tools:showIn="@layout/activity_compose">
 
 
-        <examples.baku.io.permissions.PermissionedTextLayout
-            android:id="@+id/composeTo"
+    <examples.baku.io.permissions.PermissionedTextLayout
+        android:id="@+id/composeTo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="To"
+        android:inputType="textEmailAddress" />
+
+    <examples.baku.io.permissions.PermissionedTextLayout
+        android:id="@+id/composeFrom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="From"
+        android:inputType="textEmailAddress" />
+
+
+    <examples.baku.io.permissions.PermissionedTextLayout
+        android:id="@+id/composeSubject"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Subject"
+        android:inputType="textEmailSubject" />
+
+
+    <RelativeLayout
+        android:id="@+id/composeAttachment"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:background="#eee">
+
+        <ImageView
+            android:id="@+id/composeAttachmentIcon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:padding="5dp"
+            android:src="@drawable/ic_check_black_24dp" />
+
+        <TextView
+            android:id="@+id/composeAttachmentText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textEmailAddress"
-            android:hint="To" />
-
-        <examples.baku.io.permissions.PermissionedTextLayout
-            android:id="@+id/composeFrom"
-            android:layout_width="match_parent"
+            android:text="http://about.com"
+            android:textSize="20dp"
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@+id/composeAttachmentIcon" />
+        <ImageView
+            android:id="@+id/composeAttachmentCast"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:inputType="textEmailAddress"
-            android:layout_below="@id/composeTo"
-            android:hint="From" />
+            android:layout_centerVertical="true"
+            android:layout_alignParentRight="true"
+            android:padding="5dp"
+            android:src="@drawable/ic_cast_black_24dp" />
+    </RelativeLayout>
+
+    <examples.baku.io.permissions.PermissionedTextLayout
+        android:id="@+id/composeMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Message"
+        android:inputType="textMultiLine" />
 
 
-        <examples.baku.io.permissions.PermissionedTextLayout
-            android:id="@+id/composeSubject"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="textEmailSubject"
-            android:layout_below="@id/composeFrom"
-            android:hint="Subject" />
-
-
-        <examples.baku.io.permissions.PermissionedTextLayout
-            android:id="@+id/composeMessage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="textMultiLine"
-            android:layout_below="@id/composeSubject"
-            android:hint="Message" />
-
-
-
-</RelativeLayout>
+</LinearLayout>

@@ -10,30 +10,42 @@ import android.content.ContextWrapper;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
 import android.support.design.widget.TextInputLayout;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
+import android.text.method.KeyListener;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.StrikethroughSpan;
 import android.util.AttributeSet;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.firebase.database.DatabaseError;
 import com.joanzapata.iconify.IconDrawable;
 import com.joanzapata.iconify.fonts.MaterialIcons;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import examples.baku.io.permissions.synchronization.SyncText;
 import examples.baku.io.permissions.synchronization.SyncTextDiff;
@@ -53,11 +65,19 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
     private PermissionedEditText editText;
     private FrameLayout overlay;
 
+    private final SortedMap<Integer, ActionItem> mActions = new TreeMap<>();
+    private ActionItem mPrimaryAction;
+
     private ImageView actionButton;
 
     private PermissionedTextListener permissionedTextListener = null;
 
     private int inputType = InputType.TYPE_CLASS_TEXT;
+
+    private boolean editable = true;
+
+
+    private int version = -1;
 
     public void unlink() {
         if (syncText != null) {
@@ -85,6 +105,10 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
         init(context, attrs, defStyleAttr);
     }
 
+    public void setAutoCompleteAdapter(ArrayAdapter<String> adapter) {
+        editText.setAdapter(adapter);
+    }
+
     public void init(final Context context, AttributeSet attrs, int defStyleAttr) {
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
@@ -102,19 +126,31 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
         if (inputType != EditorInfo.TYPE_NULL) {
             editText.setInputType(inputType);
         }
+
+
         textInputLayout.addView(editText, params);
         addView(textInputLayout);
 
         overlay = new FrameLayout(context);
         overlay.setLayoutParams(new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        overlay.setBackgroundColor(Color.BLACK);
+//        overlay.setBackgroundColor(Color.BLACK);
+        overlay.setBackgroundResource(R.drawable.permission_overlay_bg);
         overlay.setOnTouchListener(new OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    Toast.makeText(getContext(), "This device does not have permission to view this field", 0).show();
+                }
                 return true;
             }
         });
         overlay.setVisibility(GONE);
+        TextView overlayLabel = new TextView(context);
+        overlayLabel.setTextSize(24);
+        overlayLabel.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
+        overlayLabel.setText(hint + " Unavailable");
+
+        overlay.addView(overlayLabel);
         addView(overlay);
 
         actionButton = new ImageView(context);
@@ -134,7 +170,11 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
                     }
                     case MotionEvent.ACTION_UP:
                         if (permissionedTextListener != null) {
-                            permissionedTextListener.onAction(0, PermissionedTextLayout.this);
+                            int aId = 0;
+                            if (mPrimaryAction != null) {
+                                aId = mPrimaryAction.id;
+                            }
+                            permissionedTextListener.onAction(aId, PermissionedTextLayout.this);
                         }
                     case MotionEvent.ACTION_CANCEL: {
                         ImageView view = (ImageView) v;
@@ -210,26 +250,44 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
         if (syncText != null) {
             this.syncText.setPermissions(permissions);
             if ((permissions & PermissionManager.FLAG_WRITE) == PermissionManager.FLAG_WRITE) {
+                editText.setVisibility(VISIBLE);
                 overlay.setVisibility(GONE);
                 editText.setInputType(inputType);
                 editText.setEnabled(true);
                 syncText.acceptSuggestions();
             } else if ((permissions & PermissionManager.FLAG_SUGGEST) == PermissionManager.FLAG_SUGGEST) {
+                editText.setVisibility(VISIBLE);
                 overlay.setVisibility(GONE);
                 editText.setInputType(inputType);
                 editText.setEnabled(true);
             } else if ((permissions & PermissionManager.FLAG_READ) == PermissionManager.FLAG_READ) {
+                editText.setVisibility(VISIBLE);
                 overlay.setVisibility(GONE);
                 syncText.rejectSuggestions();
                 editText.setInputType(EditorInfo.TYPE_NULL);
                 editText.setEnabled(false);
             } else {
+                editText.setVisibility(GONE);
                 overlay.setVisibility(VISIBLE);
                 syncText.rejectSuggestions();
                 editText.setInputType(EditorInfo.TYPE_NULL);
                 editText.setEnabled(false);
             }
         }
+        if (!editable) {
+            editText.disable();
+        } else {
+            editText.enable();
+        }
+    }
+
+    public void setEditable(boolean editable) {
+//        this.editable = editable;
+        update();
+    }
+
+    public String getText() {
+        return editText.getText().toString();
     }
 
     private synchronized void updateText(final LinkedList<SyncTextDiff> diffs) {
@@ -251,8 +309,6 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
         }
     }
 
-    private int version = -1;
-
     private TextWatcher watcher = new TextWatcher() {
         @Override
         public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -269,6 +325,33 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
 
         }
     };
+
+    public void clearActions() {
+        mActions.clear();
+        mPrimaryAction = null;
+        updateActions();
+    }
+
+    public void removeAction(int id) {
+        mActions.remove(id);
+        updateActions();
+    }
+
+    public void setAction(int id, Drawable icon, String label) {
+        mActions.put(id, new ActionItem(id, icon, label));
+        mPrimaryAction = mActions.values().iterator().next();
+        updateActions();
+    }
+
+    public void updateActions() {
+        if (mActions.size() == 1) {
+            ActionItem action = mPrimaryAction;
+            actionButton.setVisibility(VISIBLE);
+            actionButton.setImageDrawable(action.icon);
+        } else {
+            actionButton.setVisibility(GONE);
+        }
+    }
 
     public void acceptSuggestions(String src) {
         syncText.acceptSuggestions(src);
@@ -319,6 +402,15 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
         }
     };
 
+    public List<SyncTextDiff> getSuggestions() {
+        List<SyncTextDiff> result = new LinkedList<>();
+        for (SyncTextDiff diff : syncText.getDiffs()) {
+            if (diff.operation != SyncTextDiff.EQUAL && diff.permission == PermissionManager.FLAG_SUGGEST) {
+                result.add(diff);
+            }
+        }
+        return result;
+    }
 
     private SyncTextDiff getDiffAt(int index) {
         int count = 0;
@@ -333,27 +425,56 @@ public class PermissionedTextLayout extends FrameLayout implements PermissionMan
         return null;
     }
 
+    class ActionItem {
+        int id;
+        Drawable icon;
+        String label;
+
+        public ActionItem(int id, Drawable icon, String label) {
+            this.id = id;
+            this.icon = icon;
+            this.label = label;
+        }
+    }
+
     private interface OnSelectionChangedListener {
         void onSelectionChanged(int selStart, int selEnd, boolean focus);
     }
 
-    private class PermissionedEditText extends EditText {
+    private class PermissionedEditText extends AutoCompleteTextView {
         private OnSelectionChangedListener mSelectionListener;
+        private KeyListener keyListener;
 
         public PermissionedEditText(Context context) {
             super(context);
+            init();
         }
 
         public PermissionedEditText(Context context, AttributeSet attrs) {
             super(context, attrs);
+            init();
         }
 
         public PermissionedEditText(Context context, AttributeSet attrs, int defStyleAttr) {
             super(context, attrs, defStyleAttr);
+            init();
         }
+
+        private void init() {
+            keyListener = getKeyListener();
+        }
+
 
         public void setSelectionListener(OnSelectionChangedListener mSelectionListener) {
             this.mSelectionListener = mSelectionListener;
+        }
+
+        public void enable() {
+            setKeyListener(keyListener);
+        }
+
+        public void disable() {
+            setKeyListener(null);
         }
 
         @Override
