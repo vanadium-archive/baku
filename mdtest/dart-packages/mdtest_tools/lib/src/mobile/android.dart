@@ -68,14 +68,12 @@ Future<int> unlockDevice(Device device) async {
 
   if (!isLocked) return 0;
 
-  Process wakeUpAndUnlockProcess = await Process.start(
+  ProcessResult wakeUpAndUnlockProcessResult = Process.runSync(
     'adb',
     ['-s', '${device.id}', 'shell', 'input', 'keyevent', 'KEYCODE_MENU']
   );
-  wakeUpAndUnlockProcess.stdout.drain();
-  wakeUpAndUnlockProcess.stderr.drain();
 
-  return await wakeUpAndUnlockProcess.exitCode;
+  return wakeUpAndUnlockProcessResult.exitCode;
 }
 
 // Uninstall an Android app

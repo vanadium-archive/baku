@@ -1,10 +1,10 @@
 {
   "devices": {
-    "Bot1": {
+    "Alice": {
       "app-root": "..",
       "app-path": "test_driver/chat_alice.dart"
     },
-    "Bot2": {
+    "Bob": {
       "app-root": "..",
       "app-path": "test_driver/chat_bob.dart"
     }
